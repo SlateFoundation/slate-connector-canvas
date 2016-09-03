@@ -163,7 +163,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                 // sync user
                 if (!empty($canvasUserChanges)) {
                     if (!$pretend) {
-                        $canvasResponse = CanvasAPI::updateUser($Mapping->ExternalIdentifier, $canvasTo['user']);
+                        $canvasResponse = CanvasAPI::updateUser($Mapping->ExternalIdentifier, DataUtil::extractToFromDelta($canvasUserChanges));
                         //$Job->log('<blockquote>Canvas update user response: ' . var_export($canvasResponse, true) . "</blockquote>\n");
                     }
 
@@ -182,7 +182,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                 // sync login
                 if (!empty($canvasLoginChanges)) {
                     if (!$pretend) {
-                        $canvasResponse = CanvasAPI::updateLogin($logins[0]['id'], $canvasTo['login']);
+                        $canvasResponse = CanvasAPI::updateLogin($logins[0]['id'], DataUtil::extractToFromDelta($canvasLoginChanges));
                         //$Job->log('<blockquote>Canvas update login response: ' . var_export($canvasResponse, true) . "</blockquote>\n");
                     }
 
