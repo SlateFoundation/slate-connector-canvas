@@ -27,6 +27,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
         $config['pushUsers'] = !empty($requestData['pushUsers']);
         $config['pushSections'] = !empty($requestData['pushSections']);
+        $config['removeTeachers'] = !empty($requestData['removeTeachers']);
 
         return $config;
     }
@@ -502,7 +503,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             }
 
             // remove teachers from canvas
-            if (static::$removeTeachers) {
+            if (!empty($Job->Config['removeTeachers'])) {
                 foreach (array_diff(array_keys($canvasEnrollments['teachers']), $slateEnrollments['teachers']) AS $teacherUsername) {
                     if (!$pretend) {
                         $canvasResponse = CanvasAPI::deleteEnrollmentsForCourse(

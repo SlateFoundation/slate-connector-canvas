@@ -5,7 +5,7 @@
 {block content}
     <h1>Push to Canvas</h1>
 
-	<h2>Input</h2>
+    <h2>Input</h2>
     <h3>Run from template</h3>
     <ul>
         {foreach item=TemplateJob from=$templates}
@@ -51,6 +51,13 @@
     				<input type="checkbox" name="pushSections" value="true" {refill field=pushSections checked="true" default="true"}>
     			</label>
     			Check to push sections and enrollments to Canvas
+    		</p>
+            <p>
+    			<label>
+    				Remove Teachers
+    				<input type="checkbox" name="removeTeachers" value="false" {refill field=pushUsers checked="true" default="false"}>
+    			</label>
+    			Check to unenroll teachers from Canvas courses if they're no longer enrolled in Slate
     		</p>
         </fieldset>
 
