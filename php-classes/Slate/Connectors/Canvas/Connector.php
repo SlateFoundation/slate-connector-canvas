@@ -470,26 +470,33 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             }
 
             // add teachers to canvas
-            foreach ($Section->Instructors AS $Instructor) {
+            foreach ($Section->Teachers AS $Teacher) {
+
                 $results['teachersAnalyzed']++;
-                $slateEnrollments['teachers'][] = $Instructor->Username;
+                $slateEnrollments['teachers'][] = $Teacher->Username;
 
                 // check if teacher needs enrollment
-                if (array_key_exists($Instructor->Username, $canvasEnrollments['teachers'])) {
+                if (array_key_exists($Teacher->Username, $canvasEnrollments['teachers'])) {
                     continue;
                 }
 
                 if (!$pretend) {
-                    $canvasResponse = CanvasAPI::createEnrollmentsForSection($SectionMapping->ExternalIdentifier, [
-                        'enrollment[user_id]' => static::_getCanvasUserID($Instructor->ID),
-                        'enrollment[type]' => 'TeacherEnrollment',
-                        'enrollment[enrollment_state]' => 'active',
-                        'enrollment[notify]' => 'false'
-                    ]);
+                    try {
+                        $canvasResponse = CanvasAPI::createEnrollmentsForSection($SectionMapping->ExternalIdentifier, [
+                            'enrollment[user_id]' => static::_getCanvasUserID($Teacher->ID),
+                            'enrollment[type]' => 'TeacherEnrollment',
+                            'enrollment[enrollment_state]' => 'active',
+                            'enrollment[notify]' => 'false'
+                        ]);
+                    } catch (\Exception $e) {
+                        $Job->log("Failed to map teacher $Teacher->Username to Canvas user", LogLevel::ERROR);
+                        $results['teachersUnmapped']++;
+                        continue;
+                    }
                     //$Job->log('<blockquote>Canvas create response: ' . var_export($canvasResponse, true) . "</blockquote>\n");
                 }
 
-                $Job->log("Enrolled teacher $Instructor->Username", LogLevel::NOTICE);
+                $Job->log("Enrolled teacher $Teacher->Username", LogLevel::NOTICE);
                 $results['teachersAdded']++;
             }
 
@@ -532,12 +539,18 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
 
                 if (!$pretend) {
-                    $canvasResponse = CanvasAPI::createEnrollmentsForSection($SectionMapping->ExternalIdentifier, [
-                        'enrollment[user_id]' => static::_getCanvasUserID($Student->ID),
-                        'enrollment[type]' => 'StudentEnrollment',
-                        'enrollment[enrollment_state]' => 'active',
-                        'enrollment[notify]' => 'false',
-                    ]);
+                    try {
+                        $canvasResponse = CanvasAPI::createEnrollmentsForSection($SectionMapping->ExternalIdentifier, [
+                            'enrollment[user_id]' => static::_getCanvasUserID($Student->ID),
+                            'enrollment[type]' => 'StudentEnrollment',
+                            'enrollment[enrollment_state]' => 'active',
+                            'enrollment[notify]' => 'false',
+                        ]);
+                    } catch (\Exception $e) {
+                        $Job->log("Failed to map student $Student->Username to Canvas user", LogLevel::ERROR);
+                        $results['studentsUnmapped']++;
+                        continue;
+                    }
                     //$Job->log('<blockquote>Canvas create response: ' . var_export($canvasResponse, true) . "</blockquote>\n");
                 }
 
@@ -563,5 +576,27 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
 
         return $results;
+    }
+
+    protected static function _getCanvasUserID($userId)
+    {
+        static $cache = [];
+
+        if (!array_key_exists($userId, $cache)) {
+            $UserMapping = Mapping::getByWhere([
+                'ContextClass' => User::getStaticRootClass(),
+                'ContextID' => $userId,
+                'Connector' => static::getConnectorId(),
+                'ExternalKey' => 'user[id]'
+            ]);
+
+            if (!$UserMapping) {
+                throw new \Exception("Could not find canvas mapping for user #$userId");
+            }
+
+            $cache[$userId] = $UserMapping->ExternalIdentifier;
+        }
+
+        return $cache[$userId];
     }
 }
