@@ -162,10 +162,6 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
                 // sync user
                 if (!empty($canvasUserChanges)) {
-                    // \Debug::dumpVar([
-                    //     '$canvasUserChange' => $canvasUserChange,
-                    //     'DataUtil::extractToFromDelta' => DataUtil::extractToFromDelta($canvasUserChange)
-                    // ]);
                     if (!$pretend) {
                         $canvasResponse = CanvasAPI::updateUser($Mapping->ExternalIdentifier, $canvasTo['user']);
                         //$Job->log('<blockquote>Canvas update user response: ' . var_export($canvasResponse, true) . "</blockquote>\n");
@@ -185,10 +181,6 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
                 // sync login
                 if (!empty($canvasLoginChanges)) {
-                    // \Debug::dumpVar([
-                    //     '$canvasLoginChanges' => $canvasLoginChanges,
-                    //     'DataUtil::extractToFromDelta' => DataUtil::extractToFromDelta($canvasLoginChanges)
-                    // ]);
                     if (!$pretend) {
                         $canvasResponse = CanvasAPI::updateLogin($logins[0]['id'], $canvasTo['login']);
                         //$Job->log('<blockquote>Canvas update login response: ' . var_export($canvasResponse, true) . "</blockquote>\n");
@@ -278,9 +270,8 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             $Job->log("\nAnalyzing Slate section $Section->Title", LogLevel::DEBUG);
 
             if (!count($Section->Students)) {
-                $results['sections']['skippedEmpty']++;
-
                 $Job->log('Section has no students, skipping.', LogLevel::INFO);
+                $results['sections']['skippedEmpty']++;
                 continue;
             }
 
