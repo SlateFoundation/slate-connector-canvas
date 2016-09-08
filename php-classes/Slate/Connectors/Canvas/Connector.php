@@ -215,12 +215,6 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                     continue;
                 }
 
-                if (!$User->PasswordClear) {
-                    $Job->log("No password on record, skipping $User->Username", LogLevel::ERROR);
-                    $results['skipped']['noPassword']++;
-                    continue;
-                }
-
 
                 if ($pretend) {
                     $Job->log("Created canvas user for $User->Username", LogLevel::NOTICE);
@@ -231,7 +225,6 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                         'user[short_name]' => $User->FirstName,
                         'pseudonym[unique_id]' => $User->Email,
                         'pseudonym[sis_user_id]' => $User->Username,
-                        'pseudonym[password]' => $User->PasswordClear,
                         'communication_channel[type]' => 'email',
                         'communication_channel[address]' => $User->Email
                     ]);
