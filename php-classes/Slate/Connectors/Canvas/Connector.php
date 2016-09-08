@@ -260,7 +260,15 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             $results['sections']['analyzed']++;
             $canvasSection = null;
 
-            $Job->log("\nAnalyzing Slate section $Section->Title", LogLevel::DEBUG);
+            // build section title
+            // TODO: use configurable formatter
+            $sectionTitle = $Section->Title;
+
+            if ($Section->Schedule) {
+                $sectionTitle .= ' (' . $Section->Schedule->Title . ')';
+            }
+
+            $Job->log("\nAnalyzing Slate section $sectionTitle", LogLevel::DEBUG);
 
             if (!count($Section->Students)) {
                 $Job->log('Section has no students, skipping.', LogLevel::INFO);
@@ -281,12 +289,12 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             if (!$CourseMapping = Mapping::getByWhere($courseMappingData)) {
 
                 if ($pretend) {
-                    $Job->log("Created canvas course for $Section->Title", LogLevel::NOTICE);
+                    $Job->log("Created canvas course for $sectionTitle", LogLevel::NOTICE);
                     $results['sections']['coursesCreated']++;
                 } else {
                     $canvasResponse = CanvasAPI::createCourse([
                         'account_id' => CanvasAPI::$accountID,
-                        'course[name]' => $Section->Title,
+                        'course[name]' => $sectionTitle,
                         'course[course_code]' => $Section->Code,
                         'course[start_at]' => $Section->Term->StartDate,
                         'course[end_at]' => $Section->Term->EndDate,
@@ -298,7 +306,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                         $courseMappingData['ExternalIdentifier'] = $canvasResponse['id'];
                         $CourseMapping = Mapping::create($courseMappingData, true);
 
-                        $Job->log("Created canvas section for course $Section->Title, saved mapping to new canvas course #{$canvasResponse[id]}", LogLevel::NOTICE);
+                        $Job->log("Created canvas section for course $sectionTitle, saved mapping to new canvas course #{$canvasResponse[id]}", LogLevel::NOTICE);
                         $results['sections']['coursesCreated']++;
                     } else {
                         $Job->log('Failed to create canvas course', LogLevel::ERROR);
@@ -320,9 +328,9 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                 $canvasFrom = [];
                 $canvasTo = [];
 
-                if ($canvasCourse['name'] != $Section->Title) {
+                if ($canvasCourse['name'] != $sectionTitle) {
                     $canvasFrom['course[name]'] = $canvasCourse['name'];
-                    $canvasTo['course[name]'] = $Section->Title;
+                    $canvasTo['course[name]'] = $sectionTitle;
                 }
 
                 if ($canvasCourse['course_code'] != $Section->Code) {
@@ -373,11 +381,11 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             if (!$SectionMapping = Mapping::getByWhere($sectionMappingData)) {
 
                 if ($pretend) {
-                    $Job->log("Created canvas section for $Section->Title", LogLevel::NOTICE);
+                    $Job->log("Created canvas section for $sectionTitle", LogLevel::NOTICE);
                     $results['sections']['sectionsCreated']++;
                 } else {
                     $canvasResponse = CanvasAPI::createSection($CourseMapping->ExternalIdentifier, [
-                        'course_section[name]' => $Section->Title,
+                        'course_section[name]' => $sectionTitle,
                         'course_section[start_at]' => $Section->Term->StartDate,
                         'course_section[end_at]' => $Section->Term->EndDate,
                         'course_section[sis_section_id]' => $Section->Code
@@ -388,7 +396,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                         $sectionMappingData['ExternalIdentifier'] = $canvasResponse['id'];
                         $SectionMapping = Mapping::create($sectionMappingData, true);
 
-                        $Job->log("Created canvas section for $Section->Title, saved mapping to new canvas section #{$canvasResponse[id]}", LogLevel::NOTICE);
+                        $Job->log("Created canvas section for $sectionTitle, saved mapping to new canvas section #{$canvasResponse[id]}", LogLevel::NOTICE);
                         $results['sections']['sectionsCreated']++;
                     } else {
                         $Job->log('Failed to create canvas section', LogLevel::ERROR);
@@ -409,9 +417,9 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                 $canvasFrom = [];
                 $canvasTo = [];
 
-                if ($canvasSection['name'] != $Section->Title) {
+                if ($canvasSection['name'] != $sectionTitle) {
                     $canvasFrom['course_section[name]'] = $canvasSection['name'];
-                    $canvasTo['course_section[name]'] = $Section->Title;
+                    $canvasTo['course_section[name]'] = $sectionTitle;
                 }
 
                 if ($canvasSection['sis_section_id'] != $Section->Code) {
