@@ -96,7 +96,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
         if (!$conditions) {
             $conditions = [
-                'AccountLevel IS NOT NULL AND AccountLevel NOT IN ("Disabled", "Contact", "User", "Staff")', // no disabled accounts, non-users, guests, and non-teaching staff
+                'AccountLevel IS NOT NULL AND ( (AccountLevel NOT IN ("Disabled", "Contact", "User", "Staff")) OR (Class = "Slate\\\\People\\\\Student" AND AccountLevel != "Disabled") )', // no disabled accounts, non-users, guests, and non-teaching staff
                 'GraduationYear IS NULL OR GraduationYear >= ' . Term::getClosestGraduationYear(), // no alumni
                 'Username IS NOT NULL' // username must be assigned
             ];
