@@ -41,14 +41,14 @@
             <p>
                 <label>
                     Push Users
-                    <input type="checkbox" name="pushUsers" value="true" {refill field=pushUsers checked="true" default="true"}>
+                    <input type="checkbox" name="pushUsers" value="true" {refill field=pushUsers checked="true" default="false"}>
                 </label>
                 Check to push users to Canvas
             </p>
             <p>
                 <label>
                     Push Sections+Enrollments
-                    <input type="checkbox" name="pushSections" value="true" {refill field=pushSections checked="true" default="true"}>
+                    <input type="checkbox" name="pushSections" value="true" {refill field=pushSections checked="true" default="false"}>
                 </label>
                 Check to push sections and enrollments to Canvas
             </p>
