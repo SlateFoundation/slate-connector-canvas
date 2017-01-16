@@ -1,3 +1,3 @@
 <?php
 
-Slate\Connectors\Canvas\Connector::handleRequest();
+\Slate\Connectors\Canvas\Connector::handleRequest();
