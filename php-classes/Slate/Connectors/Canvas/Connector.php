@@ -13,6 +13,8 @@ use Emergence\People\Person;
 use Emergence\People\User;
 use Emergence\Util\Data AS DataUtil;
 use Emergence\Connectors\SAML2;
+use Emergence\Connectors\SyncResult;
+use Emergence\Connectors\Exceptions\SyncException;
 
 use Slate\Term;
 use Slate\Courses\Section;
@@ -28,10 +30,10 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
     public static $connectorId = 'canvas';
 
     public static $defaultLogger;
-    /**
-     * IdentityConsumer interface methods
-     */
     
+    /**
+    * IdentityConsumer interface methods
+    */
     public static function handleLoginRequest(IPerson $Person)
     {
         return SAML2::handleLoginRequest($Person);
@@ -87,12 +89,6 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
         } catch (SyncException $exception) {
             \MICS::dump($exception, 'beforeAuthentication exception');
             return false;
-        }
-        
-        if (empty($results['existing']) && empty($results['created'])) {
-            return false;
-        }
-        if (!$Mapping) {
         }
         
         if (is_callable(static::$beforeAuthenticate)) {
@@ -173,10 +169,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
     // task handlers
     public static function pushUsers(Job $Job, $pretend = true)
-    {
-        // initialize results
-        $results = [];
-        
+    {   
         $conditions = [
             'ID' => [
                 'values' => [1, 5, 77, 79]    
@@ -206,25 +199,37 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
         foreach (User::getAllByWhere($conditions) AS $User) {
             $Job->log("\nAnalyzing Slate user {$User->Username} ({$User->Class}/{$User->GraduationYear})", LogLevel::DEBUG);
             $results['analyzed']++;
+
             try {
+
                 $syncResult = static::pushUser($User, $pretend);
+#                \MICS::dump([
+#                    'result' => $syncResult,
+#                    'status' => $syncResult->getStatus(),
+#                    'message' => $syncResult->getMessage(),
+#                ], 'sync result', true);
+                
+                
                 if ($syncResult->getStatus() === SyncResult::STATUS_CREATED) {
                     $results['created']++;
                 } else if ($syncResult->getStatus() === SyncResult::STATUS_UPDATED) {
                     $results['updated']++;
+                    $results['existing']++;
                     if ($syncResult->getContext('updateContext') == 'login') {
                         $results['logins']['updated']++;
                     }
                 } else if ($syncResult->getStatus() === SyncResult::STATUS_SKIPPED) {
                     continue;
                 }
-
-                $enrollmentResult = static::pushEnrollments($User, $pretend);
-                // todo: handle sync results that can contain "multiple" statuses
             } catch (SyncException $e) {
                 $results['failed']++;
             }
+            
+            try {
+                $enrollmentResult = static::pushEnrollments($User, $pretend);
+            } catch (SyncException $e) {}
         }
+
         return $results;
     }
     
@@ -251,7 +256,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
         
         // if account exists, sync
         if ($Mapping = Mapping::getByWhere($mappingData)) {
-            
+
             // update user if mapping exists
             $logger->log(LogLevel::DEBUG, "Found mapping to Canvas user {canvasUserId}, checking for updates...", [
                 'canvasUserMapping' => $Mapping,
@@ -319,7 +324,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                 //$Job->log('<blockquote>Canvas logins response: ' . var_export($logins, true) . "</blockquote>\n");
 
                 if (empty($logins)) {
-                    return new SyncException('Unexpected: No existing logins found for canvas user: {canvasUserId}', [
+                    throw new SyncException('Unexpected: No existing logins found for canvas user: {canvasUserId}', [
                         'canvasUserId' => $Mapping->ExternalIdentifier,
                         'response' => $canvasResponse,
                         'changes' => $changes
@@ -328,26 +333,28 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
                 $logger->log(LogLevel::DEBUG, 'Updated login for user {slateUsername}', ['slateUsername' => $User->Username]);
             } else {
-                $logger->log(LogLevel::DEBUG, 'Canvas login matches Slate login', []);
+                $logger->log(LogLevel::DEBUG, 'Canvas login matches Slate login');
             }
-        } else {
+            
+            return new SyncResult(!empty($canvasUserChanges) || !empty($canvasLoginChanges) ? SyncResult::STATUS_UPDATED : SyncResult::STATUS_VERIFIED, [
+                'message' => 'Canvas account for {slateUsername} found and verified up-to-date.',
+                'context' => [
+                    'slateUsername' => $User->Username
+                ]
+            ]);
 
-            // create user if no mapping found
+        } else { // try to create user if no mapping found
+            // skip accounts with no email
             if (!$User->Email) {
-                return new SyncResult([
-                    'status' => SyncResult::STATUS_SKIPPED,
-                    
+                return new SyncResult(SyncResult::STATUS_SKIPPED, [
                     'message' => 'No email, skipping {slateUsername}',
                     'context' => [
-                        'slateUsername' => $User->Username,
-                        ''
+                        'slateUsername' => $User->Username
                     ]
                 ]);
             }
 
-            if ($pretend) {
-                $logger->log(LogLevel::NOTICE, 'Created canvas user for {slateUsername}', ['slateUsername' => $User->Username]);
-            } else {
+            if (!$pretend) {                
                 $canvasResponse = CanvasAPI::createUser([
                     'user[name]' => $User->FullName,
                     'user[short_name]' => $User->FirstName,
@@ -358,24 +365,35 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                 ]);
                 //$Job->log('<blockquote>Canvas create response: ' . var_export($canvasResponse, true) . "</blockquote>\n");
 
+                // save external mapping if request is successful
                 if (!empty($canvasResponse['id'])) {
                     $mappingData['ExternalIdentifier'] = $canvasResponse['id'];
                     Mapping::create($mappingData, true);
 
-                    $results->log(LogLevel::NOTICE, 'Created canvas user for {slateUsername}, saved mapping to new canvas user #{canvasUserId}', [
-                        'slateUsername' => $User->Username,
-                        'canvasUserId' => $canvasResponse['id']
+                    return new SyncResult(SyncResult::STATUS_CREATED, [
+                        'message' => 'Created canvas user for {slateUsername}, saved mapping to new canvas user #{canvasUserId}',
+                        'context' => [
+                            'slateUsername' => $User->Username,
+                            'canvasUserId' => $canvasResponse['id']
+                        ]
                     ]);
+
                 } else {
-                    return new SyncException('Failed to create canvas user for {slateUsername}', [
+                    throw new SyncException('Failed to create canvas user for {slateUsername}', [
                         'slateUsername' => $User->Username,
                         'response' => $canvasResponse
                     ]);
                 }
+            } else {
+                $logger->log(LogLevel::NOTICE, 'Created canvas user for {slateUsername}', ['slateUsername' => $User->Username]);
+                return new SyncResult(SyncResut::STATUS_CREATED, [
+                    'message' => 'Created canvas user for {slateUsername}, savedmapping to new canvas user (pretend-mode)',
+                    'context' => [
+                        'slateUsername' => $User->Username    
+                    ]
+                ]);
             }
         }
-        
-        return $results;
     }
     
     /*
@@ -391,7 +409,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             $logger = static::getDefaultLogger();
         }
         
-        $studentEnrollments = SectionParticipant::getAllByWhere([
+        $userEnrollments = SectionParticipant::getAllByWhere([
             'PersonID' => $User->ID
         ]);
         
@@ -401,57 +419,57 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
         }
         
         //sync student enrollments
-        foreach ($studentEnrollments as $studentEnrollment) {
-            if ($studentEnrollment->Section->Status == 'Live' && $studentEnrollment->Section->Term->Status == 'Live') {
+        foreach ($userEnrollments as $userEnrollment) {
+            if ($userEnrollment->Section->Status == 'Live' && $userEnrollment->Section->Term->Status == 'Live') {
                 if (
                     $CourseMapping = Mapping::getByWhere([
-                        'ContextClass' => $studentEnrollment->Section->getRootClass(),
-                        'ContextID' => $studentEnrollment->Section->ID,
+                        'ContextClass' => $userEnrollment->Section->getRootClass(),
+                        'ContextID' => $userEnrollment->Section->ID,
                         'Connector' => static::getConnectorId(),
                         'ExternalKey' => 'course[id]'
                     ]) &&
                     $SectionMapping = Mapping::getByWhere([
-                        'ContextClass' => $studentEnrollment->Section->getRootClass(),
-                        'ContextID' => $studentEnrollment->Section->ID,
+                        'ContextClass' => $userEnrollment->Section->getRootClass(),
+                        'ContextID' => $userEnrollment->Section->ID,
                         'Connector' => static::getConnectorId(),
                         'ExternalKey' => 'course_section[id]'
                     ])
                 ) { // sync enrollments for already synced sections
-                    switch ($studentEnrollment->Role) {
+                    switch ($userEnrollment->Role) {
                         case 'Student':
-                            $studentEnrollmentType = 'student';
+                            $userEnrollmentType = 'student';
                             break;
                         case 'Teacher':
                         case 'Assistant':
-                            $studentEnrollmentType = 'teacher';
+                            $userEnrollmentType = 'teacher';
                             break;
                         case 'Observer':
-                            $studentEnrollmentType = 'observer';
+                            $userEnrollmentType = 'observer';
                             break;
                     }
 
                     $enrollmentIndex = array_key_exists($SectionMapping->ExternalIdentifier, $canvasEnrollments);
-                    if (!$enrollmentIndex) { //create section enrollment
-                        try {
-                            $canvasEnrollment = static::createSectionEnrollment($User, $CourseMapping, $SectionMapping, [
-                                'type' => $studentEnrollmentType
-                            ]);
-                        } catch (SyncException $e) {
-                            $failed[$SectionMapping->ExternalIdentifier] = $studentEnrollment->Section;
-                            continue;
-                            // todo: handle failed enrollments    
-                        }
-                    } // todo: handle changes to enrollment type.
+                    if (!$enrollmentIndex) { 
+                        // create section enrollment
+                        $canvasEnrollment = static::createSectionEnrollment($User, $CourseMapping, $SectionMapping, [
+                            'type' => $userEnrollmentType
+                        ]);
+
+                        $logger->log(
+                            LogLevel::NOTICE,
+                            $canvasEnrollment->getMessage(),
+                            $canvasEnrollment->getContext()
+                        );
+                    } // TODO: handle changes to enrollment type.
                 }
             }
         }
-        
-        // todo: remove enrollments in canvas that are not in slate?
+
+        // TODO : remove enrollments in canvas that are not in slate?
         
         // sync ward enrollments
         foreach ($User->Wards as $Ward) {
             // push observer enrollments for ward sections
-            
             $StudentMapping = Mapping::getByWhere([
                 'ContextClass' => $Ward->getRootClass(),
                 'ContextID' => $Ward->ID,
@@ -463,8 +481,25 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                 continue;
             }
             
-            $studentCanvasId = static::_getCanvasUserID($StudentMapping->ExternalIdentifier);
-            foreach ($Ward->Sections as $Section) {
+            $studentCanvasId = static::_getCanvasUserID($StudentMapping->Context->ID);
+            
+            $WardEnrollments = SectionParticipant::getAllByQuery(
+                'SELECT SectionParticipant.* '.
+                '  FROM `%s` SectionParticipant '.
+                '  JOIN `%s` Section '.
+                '    ON Section.ID = SectionParticipant.CourseSectionID '.
+                ' WHERE Section.TermID = %u '.
+                '   AND SectionParticipant.PersonID = %u ',
+                [
+                    \Slate\Courses\SectionParticipant::$tableName,
+                    Section::$tableName,
+                    Term::getClosest()->ID,
+                    $Ward->ID
+                ]
+            );
+            
+            foreach ($WardEnrollments as $WardEnrollment) {
+                $Section = $WardEnrollment->Section;
                 $CourseMapping = Mapping::getByWhere([
                     'ContextClass' => $Section->getRootClass(),
                     'ContextID' => $Section->ID,
@@ -483,24 +518,33 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                 }
                 
                 if (!$pretend) {
-                    try {
-                        $observerPushResults[] = static::createSectionEnrollment(
-                            $User,
-                            $CourseMapping,
-                            $SectionMapping,
-                            [
-                                'type' => 'observer',
-                                'observeeId' => $studentCanvasId
-                            ]
-                        );
-#                        $observerPushResults[] = $observerPushResult;
-                    } catch (SyncException $e) {
-                        $failed++;
-                    } // todo: handle failed observer enrollments
 
-                    // todo: better compile sub-sync results?
+                    $canvasEnrollment = static::createSectionEnrollment(
+                        $User,
+                        $CourseMapping,
+                        $SectionMapping,
+                        [
+                            'type' => 'observer',
+                            'observeeId' => $studentCanvasId
+                        ]
+                    );
+                    
+                    $logger->log(
+                        LogLevel::NOTICE,
+                        $canvasEnrollment->getMessage(),
+                        $canvasEnrollment->getContext()
+                    );
+
                 } else {
-                    $logger->log("Creating observer enrollment for {slateUsername} observing {observeeSlateUsername} in course section {sectionCode}", ['sectionCode' => $Section->Code, 'slateUsername' => $User->Username, 'observeeSlateUsername' => $Ward->Username], LogLevel::NOTICE);
+                    $logger->log(
+                        LogLevel::NOTICE,
+                        "Creating observer enrollment for {slateUsername} observing {observeeSlateUsername} in course section {sectionCode} (pretend-mode)",
+                        [
+                            'sectionCode' => $Section->Code,
+                            'slateUsername' => $User->Username,
+                            'observeeSlateUsername' => $Ward->Username
+                        ]
+                    );
                 }
             }
         }
@@ -510,17 +554,53 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
     public static function pushSections(Job $Job, $pretend = true)
     {
-        // initialize results
-        $results = [];
-
-#        $sectionConditions[] = 'TermID IN ('.implode(',', Term::getClosest()->getMaster()->getContainedTermIDs()).')';
-        
         $sectionConditions = [
+#            Commented out for testing puposes
+#            'TermID' => [
+#                'values' => Term::getClosest()->getMaster()->getContainedTermIDs(),
+#                'operator' => 'IN'
+#            ],
             'ID' => 16
         ];
         
+        $results = [
+            'analyzed' => [
+                'courses' => 0,
+                'sections' => 0,
+                'enrollments' => 0
+            ],
+            
+            'existing' => [
+                'courses' => 0,
+                'sections' => 0,
+                'enrollments' => 0
+            ],
+            
+            'created' => [
+                'courses' => 0,
+                'sections' => 0,
+                'enrollments' => 0
+            ],
+            
+            'updated' => [
+                'courses' => 0,
+                'sections' => 0,
+                'enrollments' => 0
+            ],
+            
+            'failed' => [
+                'courses' => 0,
+                'sections' => 0
+            ],
+
+            'skipped' => [
+                'courses' => 0,
+                'sections' => 0
+            ]
+
+        ];
+        
         foreach (Section::getAllByWhere($sectionConditions) AS $Section) {
-            $results['sections']['analyzed']++;
             $canvasSection = null;
 
             // build section title
@@ -532,10 +612,11 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             }
 
             $Job->log("\nAnalyzing Slate section $sectionTitle", LogLevel::DEBUG);
-
+            $results['analyzed']['sections']++;
+            
             if (!count($Section->Students)) {
                 $Job->log('Section has no students, skipping.', LogLevel::INFO);
-                $results['sections']['skippedEmpty']++;
+                $results['skipped']['sections']++;
                 continue;
             }
 
@@ -550,10 +631,15 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             ];
 
             if (!$CourseMapping = Mapping::getByWhere($courseMappingData)) {
-
                 if ($pretend) {
-                    $Job->log("Created canvas course for $sectionTitle", LogLevel::NOTICE);
-                    $results['sections']['coursesCreated']++;
+                    $Job->log(
+                        "Created canvas course for {canvasSectionTitle}",
+                        LogLevel::NOTICE,
+                        [
+                            'canvasSectionTitle' => $sectionTitle
+                        ]
+                    );
+                    $results['created']['courses']++;
                 } else {
                     $canvasResponse = CanvasAPI::createCourse([
                         'account_id' => CanvasAPI::$accountID,
@@ -569,20 +655,29 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                         $courseMappingData['ExternalIdentifier'] = $canvasResponse['id'];
                         $CourseMapping = Mapping::create($courseMappingData, true);
 
-                        $Job->log("Created canvas section for course $sectionTitle, saved mapping to new canvas course #{$canvasResponse[id]}", LogLevel::NOTICE);
-                        $results['sections']['coursesCreated']++;
+                        $Job->log(
+                            "Created canvas section for course $sectionTitle, saved mapping to new canvas course #{$canvasResponse[id]}",
+                            LogLevel::NOTICE
+                        );
+                        $results['created']['courses']++;
                     } else {
-                        $Job->log('Failed to create canvas course', LogLevel::ERROR);
-                        $results['sections']['coursesCreateFailed']++;
+                        $Job->log(
+                            'Failed to create canvas course',
+                            LogLevel::ERROR
+                        );
+                        $results['failed']['courses']++;
                         continue;
                     }
                 }
 
             } else {
-                $results['sections']['coursesExisting']++;
+                $results['existing']['sections']++;
 
                 // update user if mapping exists
-                $Job->log("Found mapping to Canvas course $CourseMapping->ExternalIdentifier, checking for updates...", LogLevel::DEBUG);
+                $Job->log(
+                    "Found mapping to Canvas course $CourseMapping->ExternalIdentifier, checking for updates...",
+                    LogLevel::DEBUG
+                );
 
                 $canvasCourse = CanvasAPI::getCourse($CourseMapping->ExternalIdentifier);
 
@@ -626,7 +721,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                         $Job->log("\t$field:\t{$canvasFrom[$field]}\t->\t$to", LogLevel::NOTICE);
                     }
 
-                    $results['coursesUpdated']++;
+                    $results['updated']['courses']++;
                 } else {
                     $Job->log('Canvas course matches Slate course.', LogLevel::DEBUG);
                 }
@@ -645,7 +740,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
                 if ($pretend) {
                     $Job->log("Created canvas section for $sectionTitle", LogLevel::NOTICE);
-                    $results['sections']['sectionsCreated']++;
+                    $results['created']['sections']++;
                 } else {
                     $canvasResponse = CanvasAPI::createSection($CourseMapping->ExternalIdentifier, [
                         'course_section[name]' => $sectionTitle,
@@ -660,15 +755,15 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                         $SectionMapping = Mapping::create($sectionMappingData, true);
 
                         $Job->log("Created canvas section for $sectionTitle, saved mapping to new canvas section #{$canvasResponse[id]}", LogLevel::NOTICE);
-                        $results['sections']['sectionsCreated']++;
+                        $results['created']['sections']++;
                     } else {
                         $Job->log('Failed to create canvas section', LogLevel::ERROR);
-                        $results['sections']['sectionsCreateFailed']++;
+                        $results['failed']['sections']++;
                         continue;
                     }
                 }
             } else {
-                $results['sections']['sectionsExisting']++;
+                $results['existing']['sections']++;
 
                 // update user if mapping exists
                 $Job->log("Found mapping to Canvas section $SectionMapping->ExternalIdentifier, checking for updates...", LogLevel::DEBUG);
@@ -739,22 +834,24 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             // add teachers to canvas
             foreach ($Section->Teachers AS $Teacher) {
                 $slateEnrollments['teachers'][] = $Teacher->Username;
+                $results['analyzed']['enrollments']++;
                 // check if student needs enrollment
                 $enrollTeacher = !array_key_exists($Teacher->Username, $canvasEnrollments['teachers']);
                 if ($enrollTeacher) {
                     if (!$pretend) {
-                        $results = static::_logSyncResults(
-                            $Job,
-                            $results,
-                            static::createSectionEnrollment(
+                        try {
+                            $newEnrollment = static::createSectionEnrollment(
                                 $Teacher,
                                 $CourseMapping,
                                 $SectionMapping,
                                 [
                                     'type' => 'teacher'
                                 ]
-                            )
-                        );
+                            );
+                            $results['created']['enrollments']++;
+                        } catch (SyncException $e) {
+                            // log exception like $Job->logException($e); ?
+                        }
                     } else {
                         $Job->log("Enrolling teacher $Teacher->Username into course section $Section->Code", LogLevel::NOTICE);
                     }
@@ -767,10 +864,8 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                     $enrollmentId = $canvasEnrollments['teachers'][$teacherUsername]['id'];
                     if ($Teacher = User::getByUsername($teacherUsername)) { // todo: handle accounts deleted in slate?
                         if (!$pretend) {
-                            $results = static::_logSyncResults(
-                                $Job,
-                                $results,
-                                static::removeSectionEnrollment(
+                            try {
+                                $removedEnrollment = static::removeSectionEnrollment(
                                     $Teacher,
                                     $CourseMapping,
                                     $SectionMapping,
@@ -778,8 +873,10 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                                         'type' => 'teacher',
                                         'enrollmentId' => $enrollmentId
                                     ]
-                                )
-                            );
+                                );
+                            } catch (SyncException $e) {
+                                // log exception like $Job->logException($e); ?
+                            }
                         } else {
                             $Job->log("Removing teacher enrollment for $Teacher->Username from course section $Section->Code", LogLevel::NOTICE);
                         }
@@ -794,18 +891,18 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
                 if ($enrollStudent) {
                     if (!$pretend) {
-                        $results = static::_logSyncResults(
-                            $Job,
-                            $results,
-                            static::createSectionEnrollment(
+                        try {
+                            $newEnrollment = static::createSectionEnrollment(
                                 $Student,
                                 $CourseMapping,
                                 $SectionMapping,
                                 [
                                     'type' => 'student'
                                 ]
-                            )
-                        );
+                            );
+                        } catch (SyncException $e) {
+                            // log exception like $Job->logException($e); ?
+                        }
                     } else {
                         $Job->log("Enrolling student $Student->Username into course section $Section->Code", LogLevel::NOTICE);
                     }
@@ -882,10 +979,8 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                 $enrollmentId = $canvasEnrollments['students'][$studentUsername]['id'];
                 if ($Student = Student::getByUsername($studentUsername)) { // todo: handle accounts deleted in slate?
                     if (!$pretend) {
-                        $results = static::_logSyncResults(
-                            $Job,
-                            $results,
-                            static::removeSectionEnrollment(
+                        try {
+                            $removedEnrollment = static::removeSectionEnrollment(
                                 $Student,
                                 $CourseMapping,
                                 $SectionMapping,
@@ -893,8 +988,11 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                                     'type' => 'student',
                                     'enrollmentId' => $enrollmentId
                                 ]
-                            )
-                        );
+                            );
+                            
+                        } catch (SyncException $e) {
+                            // log exception like $Job->logException($e); ?
+                        }
                     } else {
                         $Job->log("Removing enrollment for $Student->Username from course section $Section->Code", LogLevel::NOTICE);
                     }
@@ -902,7 +1000,6 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             }
         }
 
-        unset($results['logs']);
         return $results;
     }
     
@@ -914,11 +1011,12 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
     * @param $settings array - Config array containing enrollment options
     * @return SyncResult object / SyncException?
     */
-    public static function createSectionEnrollment(User $User, Mapping $CourseMapping, Mapping $SectionMapping, $settings = [])
+    protected static function createSectionEnrollment(User $User, Mapping $CourseMapping, Mapping $SectionMapping, $settings = [], $logger = null)
     {
-        $results = new SyncResult([
-            'method' => 'createSectionEnrollment'
-        ]);
+        
+        if (!$logger) {
+            $logger = static::getDefaultLogger();
+        }
         
         switch ($type = $settings['type']) {
             case 'student':
@@ -951,14 +1049,25 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             );
             
         } catch (\Exception $e) {
-            return new SyncException("Failed to map {enrollmentType} {slateUsername} to Canvas user", ['enrollmentType' => $type, 'slateUsername' => $User->Username, 'exception' => $e]);
-#            $results->log("Failed to map $type $User->Username to Canvas user", LogLevel::ERROR);
-#            return $results;
+            throw new SyncException(
+                "Failed to map {enrollmentType} {slateUsername} to Canvas user", 
+                [
+                    'enrollmentType' => $type,
+                    'slateUsername' => $User->Username,
+                    'exception' => $e
+                ]
+            );
         }
         
-        $results->log("Enrolled {enrollmentType} {slateUsername}", ['slateUsername' => $User->Username, 'enrollmentType' => $type], LogLevel::NOTICE);
-        
-        return $results;
+        return new SyncResult(SyncResult::STATUS_CREATED, [
+            'message' => "Enrolled {enrollmentType} {slateUsername} in {slateSectionCode}",
+            'context' => [
+                'slateUsername' => $User->Username,
+                'enrollmentType' => $type,
+                'slateSectionCode' => $SectionMapping->Context->Code,
+                'canvasResponse' => $canvasResponse
+            ]
+        ]);
     }
     
     /**
@@ -969,11 +1078,8 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
     * @param $settings array - Config array containing unenrollment options
     * @return SyncResult object / SyncException?
     */
-    public static function removeSectionEnrollment(User $User, Mapping $CourseMapping, Mapping $SectionMapping, $settings = [])
+    protected static function removeSectionEnrollment(User $User, Mapping $CourseMapping, Mapping $SectionMapping, $settings = [])
     {
-        $results = new SyncResult([
-            'method' => 'removeSectionEnrollment'
-        ]);
         
         switch ($type = $settings['type']) {
             case 'student':
@@ -993,15 +1099,34 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
         $canvasUserId = static::_getCanvasUserID($User->ID);
         $canvasSection = CanvasAPI::getSection($SectionMapping->ExternalIdentifier);
         
-        $canvasResponse = CanvasAPI::deleteEnrollmentsForCourse(
-            $canvasSection ? $canvasSection['course_id'] : $CourseMapping->ExternalIdentifier,
-            $settings['enrollmentId'],
-            $settings['enrollmentTask'] ?: null
-        );
+        try {
+            $canvasResponse = CanvasAPI::deleteEnrollmentsForCourse(
+                $canvasSection ? $canvasSection['course_id'] : $CourseMapping->ExternalIdentifier,
+                $settings['enrollmentId'],
+                $settings['enrollmentTask'] ?: null
+            );
+        } catch (\Exception $e) {
+            throw new SyncException(
+                "Unable to delete {enrollmentType} enrollment for {slateUsername} in {slateSectionCode}",
+                [
+                    'enrollmentType' => $type,
+                    'slateUsername' => $User->Username,
+                    'slateSectionCode' => $SectionMapping->Context->Code,
+                    'canvasResponse' => $canvasResponse,
+                    'exception' => $e
+                ]
+            );
+        }
         
-        $results->log("Deleting {enrollmentType} enrollment for {slateUsername} ({sectionCode})", ['sectionCode' => $SectionMappingh->Context->Code, 'slateUsername' => $User->Username, 'enrollmentType' => $type], LogLevel::NOTICE);
-
-        return $results;
+        return new SyncResult(SyncResult::STATUS_DELETED, [
+            'message' => "Deleting {enrollmentType} enrollment for {slateUsername} ({sectionCode})",
+            'context' => [
+                'sectionCode' => $SectionMappingh->Context->Code,
+                'slateUsername' => $User->Username,
+                'enrollmentType' => $type
+                
+            ]
+        ]);
     }
     
     /**
