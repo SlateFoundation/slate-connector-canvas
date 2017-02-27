@@ -408,11 +408,9 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
             return new SyncResult(
                 !empty($changes) ? SyncResult::STATUS_UPDATED : SyncResult::STATUS_VERIFIED,
+                'Canvas account for {slateUsername} found and verified up-to-date.',
                 [
-                    'message' => 'Canvas account for {slateUsername} found and verified up-to-date.',
-                    'context' => [
-                        'slateUsername' => $User->Username
-                    ]
+                    'slateUsername' => $User->Username
                 ]
             );
 
@@ -421,11 +419,9 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             if (!$User->Email) {
                 return new SyncResult(
                     SyncResult::STATUS_SKIPPED,
+                    'No email, skipping {slateUsername}',
                     [
-                        'message' => 'No email, skipping {slateUsername}',
-                        'context' => [
-                            'slateUsername' => $User->Username
-                        ]
+                        'slateUsername' => $User->Username
                     ]
                 );
             }
@@ -441,11 +437,9 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
                 return new SyncResult(
                     SyncResult::STATUS_CREATED,
+                    'Created canvas user for {slateUsername}, savedmapping to new canvas user (pretend-mode)',
                     [
-                        'message' => 'Created canvas user for {slateUsername}, savedmapping to new canvas user (pretend-mode)',
-                        'context' => [
-                            'slateUsername' => $User->Username
-                        ]
+                        'slateUsername' => $User->Username
                     ]
                 );
             }
@@ -475,12 +469,10 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
                 return new SyncResult(
                     SyncResult::STATUS_CREATED,
+                    'Created canvas user for {slateUsername}, saved mapping to new canvas user #{canvasUserId}',
                     [
-                        'message' => 'Created canvas user for {slateUsername}, saved mapping to new canvas user #{canvasUserId}',
-                        'context' => [
-                            'slateUsername' => $User->Username,
-                            'canvasUserId' => $canvasResponse['id']
-                        ]
+                        'slateUsername' => $User->Username,
+                        'canvasUserId' => $canvasResponse['id']
                     ]
                 );
 
@@ -735,13 +727,11 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                 if ($pretend) {
                     return new SyncResult(
                         SyncResult::STATUS_CREATED,
+                        'Enrolled {enrollmentType} {slateUsername} in {slateSectionCode} (pretend-mode)',
                         [
-                            'message' => 'Enrolled {enrollmentType} {slateUsername} in {slateSectionCode} (pretend-mode)',
-                            'context' => [
-                                'slateUsername' => $User->Username,
-                                'enrollmentType' => $enrollmentType,
-                                'slateSectionCode' => $SectionMapping->Context->Code
-                            ]
+                            'slateUsername' => $User->Username,
+                            'enrollmentType' => $enrollmentType,
+                            'slateSectionCode' => $SectionMapping->Context->Code
                         ]
                     );
                 }
@@ -808,30 +798,24 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
                 return new SyncResult(
                     SyncResult::STATUS_UPDATED,
+                    'Updated enrollment type in {sectionCode} for {slateUsername} from {originalEnrollmentType} -> {enrollmentType}',
                     [
-                        'message' => 'Updated enrollment type in {sectionCode} for {slateUsername} from {originalEnrollmentType} -> {enrollmentType}',
-                        'context' => [
-                            'sectionCode' => $SectionMapping->Context->Code,
-                            'slateUsername' => $User->Username,
-                            'originalEnrollmentType' => $canvasEnrollments[$SectionMapping->ExternalIdentifer]['type'],
-                            'enrollmentType' => $enrollmentType
-                        ]
+                        'sectionCode' => $SectionMapping->Context->Code,
+                        'slateUsername' => $User->Username,
+                        'originalEnrollmentType' => $canvasEnrollments[$SectionMapping->ExternalIdentifer]['type'],
+                        'enrollmentType' => $enrollmentType
                     ]
-
                 );
             } else {
                 // TODO: confirm enrollment type
                 return new SyncResult(
                     SyncResult::STATUS_VERIFIED,
+                    'Verified enrollment in {sectionCode} for {enrollmentType} {slateUsername}',
                     [
-                        'message' => 'Verified enrollment in {sectionCode} for {enrollmentType} {slateUsername}',
-                        'context' => [
-                            'sectionCode' => $SectionMapping->Context->Code,
-                            'enrollmentType' => $enrollmentType,
-                            'slateUsername' => $User->Username
-                        ]
+                        'sectionCode' => $SectionMapping->Context->Code,
+                        'enrollmentType' => $enrollmentType,
+                        'slateUsername' => $User->Username
                     ]
-
                 );
             }
 
@@ -839,14 +823,12 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             if ($pretend) {
                 return new SyncResult(
                     SyncResult::STATUS_DELETED,
+                    'Deleted {enrollmentType} enrollment for {slateUsername} in {sectionCode}',
                     [
-                        'message' => 'Deleted {enrollmentType} enrollment for {slateUsername} in {sectionCode}',
-                        'context' => [
-                            'sectionCode' => $SectionMapping->Context->Code,
-                            'slateUsername' => $User->Username,
-                            'enrollmentType' => $enrollmentType
+                        'sectionCode' => $SectionMapping->Context->Code,
+                        'slateUsername' => $User->Username,
+                        'enrollmentType' => $enrollmentType
 
-                        ]
                     ]
                 );
             }
@@ -1554,13 +1536,11 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
         return new SyncResult(
             SyncResult::STATUS_CREATED,
+            'Enrolled {enrollmentType} {slateUsername} in {slateSectionCode}',
             [
-                'message' => 'Enrolled {enrollmentType} {slateUsername} in {slateSectionCode}',
-                'context' => [
-                    'slateUsername' => $User->Username,
-                    'enrollmentType' => $enrollmentType,
-                    'slateSectionCode' => $SectionMapping->Context->Code
-                ]
+                'slateUsername' => $User->Username,
+                'enrollmentType' => $enrollmentType,
+                'slateSectionCode' => $SectionMapping->Context->Code
             ]
         );
     }
@@ -1630,14 +1610,12 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
         return new SyncResult(
             SyncResult::STATUS_DELETED,
+            'Deleted {enrollmentType} enrollment for {slateUsername} in {sectionCode}',
             [
-                'message' => 'Deleted {enrollmentType} enrollment for {slateUsername} in {sectionCode}',
-                'context' => [
-                    'sectionCode' => $SectionMapping->Context->Code,
-                    'slateUsername' => $User->Username,
-                    'enrollmentType' => $enrollmentType
+                'sectionCode' => $SectionMapping->Context->Code,
+                'slateUsername' => $User->Username,
+                'enrollmentType' => $enrollmentType
 
-                ]
             ]
         );
     }
