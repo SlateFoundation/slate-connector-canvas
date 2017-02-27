@@ -24,9 +24,11 @@ use Slate\Courses\Section;
 use Slate\Courses\SectionParticipant;
 use Slate\People\Student;
 
-class Connector extends \Emergence\Connectors\AbstractConnector implements \Emergence\Connectors\ISynchronize
+class Connector extends \Emergence\Connectors\AbstractConnector implements \Emergence\Connectors\ISynchronize, \Emergence\Connectors\IIdentityConsumer
 {
-    use \Emergence\Connectors\IdentityConsumerTrait;
+    use \Emergence\Connectors\IdentityConsumerTrait {
+        getSAMLNameId as getDefaultSAMLNameId;
+    }
 
     public static $title = 'Canvas';
     public static $connectorId = 'canvas';
@@ -42,7 +44,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             'Person' => $Person
         ]);
 
-        return SAML2::handleLoginRequest($Person);
+        return SAML2::handleLoginRequest($Person, __CLASS__);
     }
 
     public static function userIsPermitted(IPerson $Person)
@@ -111,6 +113,18 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
         }
 
         return true;
+    }
+
+    public static function getSAMLNameId(IPerson $Person)
+    {
+        if ($Person->PrimaryEmail) {
+            return [
+                'Format' => 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+                'Value' => $Person->PrimaryEmail->toString()
+            ];
+        } else {
+            return static::getDefaultSAMLNameId($Person);
+        }
     }
 
     // workflow implementations
