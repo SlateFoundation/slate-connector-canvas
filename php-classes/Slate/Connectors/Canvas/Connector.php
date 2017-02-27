@@ -99,7 +99,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             // allow login if account exists
             try {
                 return static::_getCanvasUserID($Person->ID);
-            } catch (Exception $e) {
+            } catch (\Exception $e) {
                 return false;
             }
         }
