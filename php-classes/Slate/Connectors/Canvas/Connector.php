@@ -122,9 +122,9 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                 'Format' => 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
                 'Value' => $Person->PrimaryEmail->toString()
             ];
-        } else {
-            return static::getDefaultSAMLNameId($Person);
         }
+
+        return static::getDefaultSAMLNameId($Person);
     }
 
     // workflow implementations
@@ -212,10 +212,6 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             'logins' => [
                 'updated' => 0
             ]
-#            'enrollments' => [
-#                'created' => 0,
-#                'students' => 0
-#            ]
         ];
 
         foreach (User::getAllByWhere($conditions) AS $User) {
@@ -605,7 +601,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                 continue;
             }
 
-            $studentCanvasId = static::_getCanvasUserID($StudentMapping->Context->ID);
+            $studentCanvasId = static::_getCanvasUserID($Ward->ID);
             $studentCanvasEnrollments = CanvasAPI::getEnrollmentsByUser($studentCanvasId);
 
             $WardEnrollments = SectionParticipant::getAllByQuery(
@@ -625,12 +621,6 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
             foreach ($WardEnrollments as $WardEnrollment) {
                 $Section = $WardEnrollment->Section;
-                // $CourseMapping = Mapping::getByWhere([
-                //     'ContextClass' => $Section->getRootClass(),
-                //     'ContextID' => $Section->ID,
-                //     'Connector' => static::getConnectorId(),
-                //     'ExternalKey' => 'course[id]'
-                // ]);
                 $SectionMapping = Mapping::getByWhere([
                     'ContextClass' => $Section->getRootClass(),
                     'ContextID' => $Section->ID,
@@ -642,21 +632,6 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                     $results['skipped']++;
                     continue;
                 }
-
-                // if ($pretend) {
-                //     $logger->log(
-                //         LogLevel::NOTICE,
-                //         'Creating observer enrollment for {slateUsername} observing {observeeSlateUsername} in course section {sectionCode} (pretend-mode)',
-                //         [
-                //             'sectionCode' => $Section->Code,
-                //             'slateUsername' => $User->Username,
-                //             'observeeSlateUsername' => $Ward->Username
-                //         ]
-                //     );
-                //     continue;
-                // }
-
-
 
                 try {
                     $canvasEnrollment = static::pushSectionEnrollment(
@@ -773,7 +748,6 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                         $logger,
                         strtolower(str_replace('Enrollment', '', $canvasEnrollments[$SectionMapping->ExternalIdentifier]['type'])),
                         $canvasEnrollments[$SectionMapping->ExternalIdentifier]['id']
-
                     );
 
                     $createdCanvasEnrollment = static::pushSectionEnrollment(
@@ -781,13 +755,12 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                         $SectionMapping,
                         $enrollmentType,
                         $logger,
-                        $pretend,
                         $observeeId
                     );
 
 
                 } catch (SyncException $e) {
-                    $loggel->log(
+                    $logger->log(
                         LogLevel::ERROR,
                         'Unable to update enrollment type for {slateUsername} in {sectionCode} from: {originalEnrollmentType} to: {enrollmentType}',
                         [
@@ -799,8 +772,6 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                     );
                     throw $e;
                 }
-
-                // die('updated');
 
                 return new SyncResult(
                     SyncResult::STATUS_UPDATED,
