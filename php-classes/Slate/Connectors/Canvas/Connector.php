@@ -199,16 +199,10 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
     public static function pushUsers(Job $Job, $pretend = true)
     {
         $conditions = [
-            'ID' => [
-                'values' => [1, 5, 77, 79]
-            ]
+            'AccountLevel IS NOT NULL AND ( (AccountLevel NOT IN ("Disabled", "Contact", "User", "Staff")) OR (Class = "Slate\\\\People\\\\Student" AND AccountLevel != "Disabled") )', // no disabled accounts, non-users, guests, and non-teaching staff
+            'GraduationYear IS NULL OR GraduationYear >= ' . Term::getClosestGraduationYear(), // no alumni
+            'Username IS NOT NULL' // username must be assigned
         ];
-
-#        $conditions = [
-#            'AccountLevel IS NOT NULL AND ( (AccountLevel NOT IN ("Disabled", "Contact", "User", "Staff")) OR (Class = "Slate\\\\People\\\\Student" AND AccountLevel != "Disabled") )', // no disabled accounts, non-users, guests, and non-teaching staff
-#            'GraduationYear IS NULL OR GraduationYear >= ' . Term::getClosestGraduationYear(), // no alumni
-#            'Username IS NOT NULL' // username must be assigned
-#        ];
 
         $results = [
             'analyzed' => 0,
@@ -873,12 +867,10 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
     public static function pushSections(Job $Job, $pretend = true)
     {
         $sectionConditions = [
-#            Commented out for testing puposes
-#            'TermID' => [
-#                'values' => Term::getClosest()->getMaster()->getContainedTermIDs(),
-#                'operator' => 'IN'
-#            ],
-            'ID' => 16
+            'TermID' => [
+                'values' => Term::getClosest()->getMaster()->getContainedTermIDs(),
+                'operator' => 'IN'
+            ]
         ];
 
         $results = [
