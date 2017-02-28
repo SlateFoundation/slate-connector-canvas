@@ -762,16 +762,13 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                 if ($pretend) {
                     return new SyncResult(
                         SyncResult::STATUS_UPDATED,
+                        'Updated enrollment type in {sectionCode} for {slateUsername} from {originalEnrollmentType} -> {enrollmentType} (pretend-mode)',
                         [
-                            'message' => 'Updated enrollment type in {sectionCode} for {slateUsername} from {originalEnrollmentType} -> {enrollmentType} (pretend-mode)',
-                            'context' => [
-                                'sectionCode' => $SectionMapping->Context->Code,
-                                'slateUsername' => $User->Username,
-                                'originalEnrollmentType' => $canvasEnrollments[$SectionMapping->ExternalIdentifer]['type'],
-                                'enrollmentType' => $enrollmentType
-                            ]
+                            'sectionCode' => $SectionMapping->Context->Code,
+                            'slateUsername' => $User->Username,
+                            'originalEnrollmentType' => $canvasEnrollments[$SectionMapping->ExternalIdentifer]['type'],
+                            'enrollmentType' => $enrollmentType
                         ]
-
                     );
                 }
 
@@ -858,13 +855,12 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
         } else {
             // skip sections that users are not enrolled in
-            return new SyncResult(SyncResult::STATUS_SKIPPED,
+            return new SyncResult(
+                SyncResult::STATUS_SKIPPED,
+                'Skipped section {sectionCode} that {slateUsername} is not enrolled in for either Slate or Canvas',
                 [
-                    'message' => 'Skipped section {sectionCode} that {slateUsername} is not enrolled in for either Slate or Canvas',
-                    'context' => [
-                        'sectionCode' => $SectionMapping->Context->Code,
-                        'slateUsername' => $User->Username
-                    ]
+                    'sectionCode' => $SectionMapping->Context->Code,
+                    'slateUsername' => $User->Username
                 ]
             );
         }
