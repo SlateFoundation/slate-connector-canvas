@@ -754,7 +754,8 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
                     $User,
                     $SectionMapping,
                     $logger,
-                    $enrollmentType
+                    $enrollmentType,
+                    $observeeId
                 );
 
             } elseif (ucfirst($enrollmentType).'Enrollment' != $canvasEnrollments[$SectionMapping->ExternalIdentifier]['type']) {
