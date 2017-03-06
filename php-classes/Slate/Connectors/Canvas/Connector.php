@@ -604,20 +604,14 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             $studentCanvasId = static::_getCanvasUserID($Ward->ID);
             $studentCanvasEnrollments = CanvasAPI::getEnrollmentsByUser($studentCanvasId);
 
-            $WardEnrollments = SectionParticipant::getAllByQuery(
-                'SELECT SectionParticipant.* '.
-                '  FROM `%s` SectionParticipant '.
-                '  JOIN `%s` Section '.
-                '    ON Section.ID = SectionParticipant.CourseSectionID '.
-                ' WHERE Section.TermID = %u '.
-                '   AND SectionParticipant.PersonID = %u ',
-                [
-                    \Slate\Courses\SectionParticipant::$tableName,
-                    Section::$tableName,
-                    Term::getClosest()->ID,
-                    $Ward->ID
+            $WardEnrollments = SectionParticipant::getAllByWhere([
+                'PersonID' => $Ward->ID,
+                'CourseSectionID' => [
+                    'values' => array_map(function($s) {
+                        return $s->ID;
+                    }, $Ward->CurrentCourseSections)
                 ]
-            );
+            ]);
 
             foreach ($WardEnrollments as $WardEnrollment) {
                 $Section = $WardEnrollment->Section;
