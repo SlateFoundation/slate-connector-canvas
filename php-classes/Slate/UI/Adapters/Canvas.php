@@ -14,7 +14,7 @@ class Canvas implements \Slate\UI\ILinksSource
             $canvasLinks = [
                 'Canvas' => [
                     '_icon' => 'network',
-                    '_href' => '/connectors/canvas/login'
+                    '_href' => '/connectors/canvas/launch'
                 ]
             ];
 

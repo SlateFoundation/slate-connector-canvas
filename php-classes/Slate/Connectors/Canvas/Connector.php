@@ -5,6 +5,8 @@ namespace Slate\Connectors\Canvas;
 use Psr\Log\LogLevel;
 use Psr\Log\LoggerInterface;
 
+use Site;
+
 use RemoteSystems\Canvas AS CanvasAPI;
 
 use Emergence\EventBus;
@@ -28,19 +30,34 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 {
     use \Emergence\Connectors\IdentityConsumerTrait {
         getSAMLNameId as getDefaultSAMLNameId;
+        handleRequest as handleIdentityConsumerRequest;
     }
 
     public static $title = 'Canvas';
     public static $connectorId = 'canvas';
 
-    public static $defaultLogger;
+    public static function handleRequest($action = null)
+    {
+        switch ($action ?: $action = static::shiftPath()) {
+            case 'launch':
+                $GLOBALS['Session']->requireAuthentication();
+
+                if (!CanvasAPI::$canvasHost) {
+                    throw new \Exception('Canvas host is not configured');
+                }
+
+                Site::redirect('https://'.CanvasAPI::$canvasHost);
+            default:
+                return static::handleIdentityConsumerRequest($action);
+        }
+    }
 
     /**
     * IdentityConsumer interface methods
     */
     public static function handleLoginRequest(IPerson $Person)
     {
-        EventBus::fireEvent('beforelogin', ['Slate', 'Connectors', 'Canvas'], [
+        static::_fireEvent('beforeLogin', [
             'Person' => $Person
         ]);
 
@@ -83,12 +100,12 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
     public static function beforeAuthenticate(IPerson $Person)
     {
-        EventBus::fireEvent('beforeauthenticate', ['Slate', 'Connectors', 'Canvas'], [
+        static::_fireEvent('beforeAuthenticate', [
             'Person' => $Person
         ]);
 
         try {
-            $logger = static::getDefaultLogger();
+            $logger = static::getLogger();
 
             $userSyncResult = static::pushUser($Person, $logger, false);
             if ($userSyncResult->getStatus() == SyncResult::STATUS_SKIPPED || $userSyncResult->getStatus() == SyncResult::STATUS_DELETED) {
@@ -265,9 +282,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
     public static function pushUser(IPerson $User, LoggerInterface $logger = null, $pretend = true)
     {
-        if (!$logger) {
-            $logger = static::getDefaultLogger();
-        }
+        $logger = static::getLogger($logger);
 
         // get mapping
         $mappingData = [
@@ -678,9 +693,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
 
     public static function pushSectionEnrollment(IPerson $User, Mapping $SectionMapping, $enrollmentType, LoggerInterface $logger = null, $pretend = true, $observeeId = null)
     {
-        if (!$logger) {
-            $logger = static::getDefaultLogger();
-        }
+        $logger = static::getLogger($logger);
 
         // index canvas enrollments by course_section_id
         $canvasEnrollments = [];
@@ -1591,11 +1604,6 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
     /**
     *  protected methods
     */
-    protected static function getDefaultLogger()
-    {
-        return static::$defaultLogger ?: \Emergence\Logger::getLogger();
-    }
-
     protected static function _getCanvasUserID($userId)
     {
         static $cache = [];
