@@ -10,6 +10,8 @@ Git::$repositories['slate-connector-canvas'] = [
         'php-classes/Slate/Connectors/Canvas',
         'php-classes/Slate/UI/Adapters/Canvas.php',
         'php-config/Git.config.d/slate-connector-canvas.php',
+        'php-config/Slate/UI/Omnibar.config.d/550_canvas.php',
+        'php-config/Slate/DashboardRequestHandler.config.d/550_canvas.php',
         'php-migrations/Slate/Connectors/20160901_canvas-keys.php',
         'site-root/connectors/canvas.php'
     ]
