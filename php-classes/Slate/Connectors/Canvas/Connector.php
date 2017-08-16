@@ -9,6 +9,11 @@ use Site;
 
 use RemoteSystems\Canvas AS CanvasAPI;
 
+
+use Emergence\Connectors\AbstractConnector;
+use Emergence\Connectors\IdentityConsumerTrait;
+use Emergence\Connectors\IIdentityConsumer;
+use Emergence\Connectors\ISynchronize;
 use Emergence\EventBus;
 
 use Emergence\Connectors\Job;
@@ -17,7 +22,7 @@ use Emergence\People\IPerson;
 use Emergence\People\Person;
 use Emergence\People\User;
 use Emergence\Util\Data AS DataUtil;
-use Emergence\Connectors\SAML2;
+use Emergence\SAML2\Connector AS SAML2Connector;
 use Emergence\Connectors\SyncResult;
 use Emergence\Connectors\Exceptions\SyncException;
 
@@ -26,30 +31,25 @@ use Slate\Courses\Section;
 use Slate\Courses\SectionParticipant;
 use Slate\People\Student;
 
-class Connector extends \Emergence\Connectors\AbstractConnector implements \Emergence\Connectors\ISynchronize, \Emergence\Connectors\IIdentityConsumer
+class Connector extends AbstractConnector implements ISynchronize, IIdentityConsumer
 {
-    use \Emergence\Connectors\IdentityConsumerTrait {
+    use IdentityConsumerTrait {
         getSAMLNameId as getDefaultSAMLNameId;
-        handleRequest as handleIdentityConsumerRequest;
     }
 
     public static $title = 'Canvas';
     public static $connectorId = 'canvas';
 
-    public static function handleRequest($action = null)
+
+    public static function handleLaunchRequest()
     {
-        switch ($action ?: $action = static::shiftPath()) {
-            case 'launch':
-                $GLOBALS['Session']->requireAuthentication();
+        $GLOBALS['Session']->requireAuthentication();
 
-                if (!CanvasAPI::$canvasHost) {
-                    throw new \Exception('Canvas host is not configured');
-                }
-
-                Site::redirect('https://'.CanvasAPI::$canvasHost);
-            default:
-                return static::handleIdentityConsumerRequest($action);
+        if (!CanvasAPI::$canvasHost) {
+            throw new \Exception('Canvas host is not configured');
         }
+
+        Site::redirect('https://'.CanvasAPI::$canvasHost);
     }
 
     /**
@@ -61,7 +61,7 @@ class Connector extends \Emergence\Connectors\AbstractConnector implements \Emer
             'Person' => $Person
         ]);
 
-        return SAML2::handleLoginRequest($Person, __CLASS__);
+        return SAML2Connector::handleLoginRequest($Person, __CLASS__);
     }
 
     public static function userIsPermitted(IPerson $Person)
