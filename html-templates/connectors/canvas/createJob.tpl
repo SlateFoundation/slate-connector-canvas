@@ -38,12 +38,29 @@
                 </label>
                 Email recipient or list of recipients to send post-sync report to
             </p>
+        </fieldset>
+        <fieldset>
+            <legend>User Accounts</legend>
             <p>
                 <label>
                     Push Users
                     <input type="checkbox" name="pushUsers" value="true" {refill field=pushUsers checked="true" default="false"}>
                 </label>
                 Check to push users to Canvas
+            </p>
+        </fieldset>
+        <fieldset>
+            <legend>Courses Sections & Enrollments</legend>
+            <p>
+                <label>
+                    Master Term
+                    <select name="masterTerm">
+                        {foreach item=Term from=Slate\Term::getAllMaster()}
+                            <option value="{$Term->Handle}" {refill field=masterTerm selected=$Term->Handle}>{$Term->Title|escape}</option>
+                        {/foreach}
+                    </select>
+                    For sections and schedules, the school year to export
+                </label>
             </p>
             <p>
                 <label>

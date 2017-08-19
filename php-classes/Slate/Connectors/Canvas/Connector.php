@@ -150,6 +150,8 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
         $config = parent::_getJobConfig($requestData);
 
         $config['pushUsers'] = !empty($requestData['pushUsers']);
+
+        $config['masterTerm'] = !empty($requestData['masterTerm']) ? $requestData['masterTerm'] : null;
         $config['pushSections'] = !empty($requestData['pushSections']);
         $config['removeTeachers'] = !empty($requestData['removeTeachers']);
 
@@ -844,9 +846,19 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
     // update references to createSectionEnrollment & removeSectionEnrollment
     public static function pushSections(Job $Job, $pretend = true)
     {
+        if (empty($Job->Config['masterTerm'])) {
+            $Job->logException(new Exception('masterTerm required to import sections'));
+            return false;
+        }
+
+        if (!$MasterTerm = Term::getByHandle($Job->Config['masterTerm'])) {
+            $Job->logException(new Exception('masterTerm not found'));
+            return false;
+        }
+
         $sectionConditions = [
             'TermID' => [
-                'values' => Term::getClosest()->getMaster()->getContainedTermIDs(),
+                'values' => $MasterTerm->getContainedTermIDs(),
                 'operator' => 'IN'
             ]
         ];
