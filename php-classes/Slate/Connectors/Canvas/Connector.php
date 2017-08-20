@@ -911,8 +911,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 $sectionTitle .= ' (' . $Section->Schedule->Title . ')';
             }
 
-            $Job->log(
-                LogLevel::NOTICE,
+            $Job->debug(
                 'Analyzing Slate section {sectionTitle} ({sectionCode})',
                 [
                     'sectionTitle' => $sectionTitle,
@@ -1018,13 +1017,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 );
 
                 $canvasCourse = CanvasAPI::getCourse($CourseMapping->ExternalIdentifier);
-                $Job->log(
-                    LogLevel::DEBUG,
-                    'Canvas course data retrieved from Canvas API',
-                    [
-                        'canvasResponse' => $canvasCourse
-                    ]
-                );
 
                 $canvasFrom = [];
                 $canvasTo = [];
@@ -1066,25 +1058,27 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 }
 
                 $results['updated']['courses']++;
+
+                $changes = [];
                 foreach ($canvasTo AS $field => $to) {
-                    $Job->log(
-                        LogLevel::NOTICE,
-                        'Updating values for course field {courseField}\n\tFrom: {fieldPreviousFieldValue}:\t->{courseCurrentFieldValue}\t',
-                        [
-                            'courseField' => $field,
-                            'fieldPreviousFieldValue' => $canvasCourse[$field],
-                            'courseCurrentFieldValue' => $to
-                        ]
-                    );
+                    $changes[$field] = [
+                        'from' => $canvasFrom[$field],
+                        'to' => $to
+                    ];
                 }
+
+                $Job->notice('Updating course {canvasCourseCode}', [
+                    'action' => 'update',
+                    'changes' => $changes,
+                    'canvasCourseCode' => $Section->Code
+                ]);
 
                 if ($pretend) {
                     continue;
                 }
 
                 $canvasResponse = CanvasAPI::updateCourse($CourseMapping->ExternalIdentifier, $canvasTo);
-                $Job->log(
-                    LogLevel::DEBUG,
+                $Job->debug(
                     'Canvas course {canvasCourseCode} updated',
                     [
                         'canvasCourseCode' => $Section->Code,
@@ -1171,13 +1165,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 );
 
                 $canvasSection = CanvasAPI::getSection($SectionMapping->ExternalIdentifier);
-                $Job->log(
-                    LogLevel::DEBUG,
-                    'Retrieved canvas section data from canvas API',
-                    [
-                        'canvasResponse' => $canvasSection
-                    ]
-                );
 
                 $canvasFrom = [];
                 $canvasTo = [];
@@ -1235,16 +1222,17 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
                 $changes = [];
                 foreach ($canvasTo AS $field => $to) {
-                    $Job->log(
-                        LogLevel::NOTICE,
-                        '\t{canvasFieldName}\t{canvasFieldOriginalValue}\t->\t{canvasFieldValue}',
-                        [
-                            'canvasFieldName' => $field,
-                            'canvasFieldOriginalValue' => $canvasFrom[$field],
-                            'canvasFieldValue' => $to
-                        ]
-                    );
+                    $changes[$field] = [
+                        'from' => $canvasFrom[$field],
+                        'to' => $to
+                    ];
                 }
+
+                $Job->notice('Updating section {sectionTitle}', [
+                    'action' => 'update',
+                    'changes' => $changes,
+                    'sectionTitle' => $sectionTitle
+                ]);
 
                 $results['sections']['sectionsUpdated']++;
             }
