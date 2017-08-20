@@ -234,8 +234,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
         ];
 
         foreach (User::getAllByWhere($conditions) AS $User) {
-            $Job->log(
-                LogLevel::DEBUG,
+            $Job->debug(
                 'Analyzing Slate user {slateUsername} ({slateUserClass}/{userGraduationYear})',
                 [
                     'slateUsername' => $User->Username,
@@ -298,8 +297,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
         if ($Mapping = Mapping::getByWhere($mappingData)) {
 
             // update user if mapping exists
-            $logger->log(
-                LogLevel::DEBUG,
+            $logger->debug(
                 'Found mapping to Canvas user {canvasUserId}, checking for updates...',
                 [
                     'canvasUserMapping' => $Mapping,
@@ -349,8 +347,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 $changes['user'] = $canvasUserChanges;
                 if (!$pretend) {
                     $canvasResponse = CanvasAPI::updateUser($Mapping->ExternalIdentifier, DataUtil::extractToFromDelta($canvasUserChanges));
-                    $logger->log(
-                        LogLevel::DEBUG,
+                    $logger->debug(
                         'Updating canvas for user {slateUsername}',
                         [
                             'slateUsername' => $User->Username,
@@ -361,16 +358,14 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                     //$Job->log('<blockquote>Canvas update user response: ' . var_export($canvasResponse, true) . "</blockquote>\n");
                 }
 
-                $logger->log(
-                    LogLevel::DEBUG,
+                $logger->debug(
                     'Updated user {slateUsername}',
                     [
                         'slateUsername' => $User->Username
                     ]
                 );
             } else {
-                $logger->log(
-                    LogLevel::DEBUG,
+                $logger->debug(
                     'Canvas user matches Slate user {slateUsername}',
                     [
                         'slateUsername' => $User->Username
@@ -383,8 +378,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 $changes['login'] = $canvasLoginChanges;
                 if (!$pretend) {
                     $canvasResponse = CanvasAPI::updateLogin($logins[0]['id'], DataUtil::extractToFromDelta($canvasLoginChanges));
-                    $logger->log(
-                        LogLevel::DEBUG,
+                    $logger->debug(
                         'Updated canvas login for user {slateUsername}',
                         [
                             'slateUsername' => $User->Username,
@@ -409,8 +403,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                     );
                 }
 
-                $logger->log(
-                    LogLevel::DEBUG,
+                $logger->debug(
                     'Updated login for user {slateUsername}',
                     [
                         'slateUsername' => $User->Username,
@@ -418,8 +411,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                     ]
                 );
             } else {
-                $logger->log(
-                    LogLevel::DEBUG,
+                $logger->debug(
                     'Canvas login for {slateUsername} matches Slate login',
                     [
                         'slateUsername' => $User->Username
@@ -448,8 +440,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             }
 
             if ($pretend) {
-                $logger->log(
-                    LogLevel::NOTICE,
+                $logger->notice(
                     'Created canvas user for {slateUsername})',
                     [
                         'slateUsername' => $User->Username
@@ -474,8 +465,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 'communication_channel[address]' => $User->Email
             ]);
 
-            $logger->log(
-                LogLevel::DEBUG,
+            $logger->debug(
                 'Creating canvas user for {slateUsername}',
                 [
                     'slateUsername' => $User->Username,
@@ -590,8 +580,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 }
 
             } catch (SyncException $e) {
-                $logger->log(
-                    LogLevel::ERROR,
+                $logger->error(
                     'Unable to push {slateUsername} section enrollment for section {sectionCode}',
                     [
                         'slateUser' => $User->Username,
@@ -667,8 +656,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                     }
 
                 } catch (SyncException $e) {
-                    $logger->log(
-                        LogLevel::ERROR,
+                    $logger->error(
                         'Unable to push {slateUsername} section observer enrollment for section {sectionCode}',
                         [
                             'slateUser' => $User->Username,
@@ -769,8 +757,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
 
                 } catch (SyncException $e) {
-                    $logger->log(
-                        LogLevel::ERROR,
+                    $logger->error(
                         'Unable to update enrollment type for {slateUsername} in {sectionCode} from: {originalEnrollmentType} to: {enrollmentType}',
                         [
                             'slateUsername' => $User->Username,
@@ -923,8 +910,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
             if (!count($Section->Students)) {
                 $results['skipped']['sections']++;
-                $Job->log(
-                    LogLevel::NOTICE,
+                $Job->notice(
                     'Skippin gsection {sectionCode} with no students.',
                     [
                         'sectionCode' => $Section->Code
@@ -946,8 +932,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             if (!$CourseMapping = Mapping::getByWhere($courseMappingData)) {
                 if ($pretend) {
                     $results['created']['courses']++;
-                    $Job->log(
-                        LogLevel::NOTICE,
+                    $Job->notice(
                         'Created canvas course for {sectionTitle} ({sectionCode})',
                         [
                             'sectionTitle' => $sectionTitle,
@@ -966,8 +951,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                     'course[sis_course_id]' => $Section->Code
                 ]);
 
-                $Job->log(
-                    LogLevel::DEBUG,
+                $Job->debug(
                     'Attempting to create canvas course for {sectionTitle} ({sectionCode}).',
                     [
                         'sectionTitle' => $sectionTitle,
@@ -978,8 +962,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
                 if (empty($canvasResponse['id'])) {
                     $results['failed']['courses']++;
-                    $Job->log(
-                        LogLevel::ERROR,
+                    $Job->error(
                         'Failed to create canvas course for {sectionTitle} ({sectionCode})',
                         [
                             'sectionTitle' => $sectionTitle,
@@ -993,8 +976,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 $CourseMapping = Mapping::create($courseMappingData, true);
                 $results['created']['courses']++;
 
-                $Job->log(
-                    LogLevel::NOTICE,
+                $Job->notice(
                     'Created canvas section for course {sectionTitle} ({sectionCode}), saved mapping to new canvas course #{canvasCourseExternalId}',
                     [
                         'sectionTitle' => $sectionTitle,
@@ -1008,8 +990,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 $results['existing']['sections']++;
 
                 // update user if mapping exists
-                $Job->log(
-                    LogLevel::DEBUG,
+                $Job->debug(
                     'Found mapping to Canvas course {canvasCourseExternalId}, checking for updates...',
                     [
                         'canvasCourseExternalId' => $CourseMapping->ExternalIdentifier
@@ -1047,8 +1028,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 }
 
                 if (empty($canvasTo)) {
-                    $Job->log(
-                        LogLevel::DEBUG,
+                    $Job->debug(
                         'Canvas course data for {canvasCourseCode} matches Slate course.',
                         [
                             'canvasCourseCode' => $Section->Code
@@ -1099,8 +1079,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
                 if ($pretend) {
                     $results['created']['sections']++;
-                    $Job->log(
-                        LogLevel::NOTICE,
+                    $Job->notice(
                         'Created canvas section for {sectionTitle}',
                         [
                             'sectionTitle' => $sectionTitle
@@ -1116,8 +1095,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                     'course_section[sis_section_id]' => $Section->Code
                 ]);
 
-                $Job->log(
-                    LogLevel::DEBUG,
+                $Job->debug(
                     'Attempting to create canvas section for {sectionTitle} ({sectionCode}).',
                     [
                         'sectionTitle' => $sectionTitle,
@@ -1128,8 +1106,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
                 if (empty($canvasResponse['id'])) {
                     $results['failed']['sections']++;
-                    $Job->log(
-                        LogLevel::ERROR,
+                    $Job->error(
                         'Failed to create canvas section',
                         [
                             'canvasResponse' => $canvasResponse
@@ -1142,8 +1119,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 $SectionMapping = Mapping::create($sectionMappingData, true);
 
                 $results['created']['sections']++;
-                $Job->log(
-                    LogLevel::NOTICE,
+                $Job->notice(
                     'Created canvas section for $sectionTitle, saved mapping to new canvas section #{$canvasResponse[id]}',
                     [
                         'sectionTitle' => $sectionTitle,
@@ -1156,8 +1132,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 $results['existing']['sections']++;
 
                 // update user if mapping exists
-                $Job->log(
-                    LogLevel::DEBUG,
+                $Job->debug(
                     'Found mapping to Canvas section {canvasSectionExternalId}, checking for updates...',
                     [
                         'canvasSectionExternalId' => $SectionMapping->ExternalIdentifier
@@ -1190,8 +1165,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 }
 
                 if (empty($canvasTo)) {
-                    $Job->log(
-                        LogLevel::NOTICE,
+                    $Job->notice(
                         'Canvas section {sectionTitle} matches Slate section.',
                         [
                             'sectionTitle' => $sectionTitle
@@ -1199,8 +1173,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                     );
                     continue;
                 } else {
-                    $Job->log(
-                        LogLevel::NOTICE,
+                    $Job->notice(
                         'Found changes for canvas section {sectionTitle}. Updating section in canvas...',
                         [
                             'sectionTitle' => $sectionTitle
@@ -1210,8 +1183,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
                 if (!$pretend) {
                     $canvasResponse = CanvasAPI::updateSection($SectionMapping->ExternalIdentifier, $canvasTo);
-                    $Job->log(
-                        LogLevel::DEBUG,
+                    $Job->debug(
                         'Canvas update section response for section: {sectionTitle}',
                         [
                             'sectionTitle' => $sectionTitle,
@@ -1275,8 +1247,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                             $Job->logException($e);
                         }
                     } else {
-                        $Job->log(
-                            LogLevel::NOTICE,
+                        $Job->notice(
                             'Enrolling {enrollmentType} {slateUsername} into course section {sectionCode}',
                             [
                                 'sectionCode' => $Section->Code,
@@ -1306,8 +1277,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                                 $Job->logException($e);
                             }
                         } else {
-                            $Job->log(
-                                LogLevel::NOTICE,
+                            $Job->notice(
                                 'Removing {enrollmentType} enrollment for {slateUsername} from course section {sectionCode}',
                                 [
                                     'sectionCode' => $Section->Code,
@@ -1338,8 +1308,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                             $Job->logException($e);
                         }
                     } else {
-                        $Job->log(
-                            LogLevel::NOTICE,
+                        $Job->notice(
                             'Enrolling {enrollmentType} {slateUsername} into course section {sectionCode}',
                             [
                                 'sectionCode' => $Section->Code,
@@ -1435,8 +1404,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                             $Job->logException($e);
                         }
                     } else {
-                        $Job->log(
-                            LogLevel::NOTICE,
+                        $Job->notice(
                             'Removing {enrollmentType} enrollment for {slateUsername} from course section {sectionCode}',
                             [
                                 'sectionCode' => $Section->Code,
@@ -1491,8 +1459,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 $enrollmentData
             );
 
-            $logger->log(
-                LogLevel::DEBUG,
+            $logger->debug(
                 'Creating {enrollmentType} enrollment for {slateUsername} in {sectionCode}',
                 [
                     'enrollmentType' => $enrollmentType,
@@ -1565,8 +1532,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 $enrollmentTask
             );
 
-            $logger->log(
-                LogLevel::DEBUG,
+            $logger->debug(
                 'Removing {enrollmentType} enrollment for {slateUsername} in {sectionCode}',
                 [
                     'enrollmentType' => ucfirst($enrollmentType).'Enrollment',
