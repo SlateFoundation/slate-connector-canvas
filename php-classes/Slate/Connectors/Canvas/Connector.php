@@ -7,7 +7,7 @@ use Psr\Log\LoggerInterface;
 
 use Site;
 
-use RemoteSystems\Canvas AS CanvasAPI;
+use RemoteSystems\Canvas as CanvasAPI;
 
 
 use Emergence\Connectors\AbstractConnector;
@@ -21,8 +21,8 @@ use Emergence\Connectors\Mapping;
 use Emergence\People\IPerson;
 use Emergence\People\Person;
 use Emergence\People\User;
-use Emergence\Util\Data AS DataUtil;
-use Emergence\SAML2\Connector AS SAML2Connector;
+use Emergence\Util\Data as DataUtil;
+use Emergence\SAML2\Connector as SAML2Connector;
 use Emergence\Connectors\SyncResult;
 use Emergence\Connectors\Exceptions\SyncException;
 
@@ -113,7 +113,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             }
 
             $enrollmentSyncResults = static::pushEnrollments($Person, $logger, false);
-
         } catch (SyncException $exception) {
             // allow login if account exists
             try {
@@ -124,7 +123,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
         }
 
         if (is_callable(static::$beforeAuthenticate)) {
-            if(false === call_user_func(static::$beforeAuthenticate, $Person)) {
+            if (false === call_user_func(static::$beforeAuthenticate, $Person)) {
                 return false;
             }
         }
@@ -233,7 +232,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             ]
         ];
 
-        foreach (User::getAllByWhere($conditions) AS $User) {
+        foreach (User::getAllByWhere($conditions) as $User) {
             $Job->debug(
                 'Analyzing Slate user {slateUsername} ({slateUserClass}/{userGraduationYear})',
                 [
@@ -245,18 +244,17 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             $results['analyzed']++;
 
             try {
-
                 $syncResult = static::pushUser($User, $Job, $pretend);
 
                 if ($syncResult->getStatus() === SyncResult::STATUS_CREATED) {
                     $results['created']++;
-                } else if ($syncResult->getStatus() === SyncResult::STATUS_UPDATED) {
+                } elseif ($syncResult->getStatus() === SyncResult::STATUS_UPDATED) {
                     $results['updated']++;
                     $results['existing']++;
                     if ($syncResult->getContext('updateContext') == 'login') {
                         $results['logins']['updated']++;
                     }
-                } else if ($syncResult->getStatus() === SyncResult::STATUS_SKIPPED) {
+                } elseif ($syncResult->getStatus() === SyncResult::STATUS_SKIPPED) {
                     continue;
                 }
             } catch (SyncException $e) {
@@ -295,7 +293,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
         // if account exists, sync
         if ($Mapping = Mapping::getByWhere($mappingData)) {
-
             // update user if mapping exists
             $logger->debug(
                 'Found mapping to Canvas user {canvasUserId}, checking for updates...',
@@ -426,7 +423,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                     'slateUsername' => $User->Username
                 ]
             );
-
         } else { // try to create user if no mapping found
             // skip accounts with no email
             if (!$User->Email) {
@@ -486,7 +482,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                         'canvasUserId' => $canvasResponse['id']
                     ]
                 );
-
             } else {
                 throw new SyncException(
                     'Failed to create canvas user for {slateUsername}',
@@ -522,7 +517,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
         //sync student enrollments
         foreach ($userEnrollments as $userEnrollment) {
-
             // skip sections/terms that are not live
             if ($userEnrollment->Section->Status != 'Live' || $userEnrollment->Section->Term->Status != 'Live') {
                 continue;
@@ -569,16 +563,15 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
                 if ($syncResult->getStatus() === SyncResult::STATUS_CREATED) {
                     $results['created']++;
-                } else if ($syncResult->getStatus() === SyncResult::STATUS_VERIFIED) {
+                } elseif ($syncResult->getStatus() === SyncResult::STATUS_VERIFIED) {
                     $results['verified']++;
-                } else if ($syncResult->getStatus() === SyncResult::STATUS_UPDATED) {
+                } elseif ($syncResult->getStatus() === SyncResult::STATUS_UPDATED) {
                     $results['updated']++;
-                } else if ($syncResult->getStatus() === SyncResult::STATUS_SKIPPED) {
-                    $nesults['skipped']++;
-                } else if ($syncResult->getStatus() === SyncResult::STATUS_DELETED) {
+                } elseif ($syncResult->getStatus() === SyncResult::STATUS_SKIPPED) {
+                    $results['skipped']++;
+                } elseif ($syncResult->getStatus() === SyncResult::STATUS_DELETED) {
                     $results['removed']++;
                 }
-
             } catch (SyncException $e) {
                 $logger->error(
                     'Unable to push {slateUsername} section enrollment for section {sectionCode}',
@@ -589,8 +582,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                     ]
                 );
             }
-
-
         }
 
         // sync ward enrollments
@@ -613,7 +604,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             $WardEnrollments = SectionParticipant::getAllByWhere([
                 'PersonID' => $Ward->ID,
                 'CourseSectionID' => [
-                    'values' => array_map(function($s) {
+                    'values' => array_map(function ($s) {
                         return $s->ID;
                     }, $Ward->CurrentCourseSections)
                 ]
@@ -645,16 +636,15 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
                     if ($canvasEnrollment->getStatus() === SyncResult::STATUS_CREATED) {
                         $results['created']++;
-                    } else if ($canvasEnrollment->getStatus() === SyncResult::STATUS_VERIFIED) {
+                    } elseif ($canvasEnrollment->getStatus() === SyncResult::STATUS_VERIFIED) {
                         $results['verified']++;
-                    } else if ($canvasEnrollment->getStatus() === SyncResult::STATUS_UPDATED) {
+                    } elseif ($canvasEnrollment->getStatus() === SyncResult::STATUS_UPDATED) {
                         $results['updated']++;
-                    } else if ($canvasEnrollment->getStatus() === SyncResult::STATUS_SKIPPED) {
-                        $nesults['skipped']++;
-                    } else if ($canvasEnrollment->getStatus() === SyncResult::STATUS_DELETED) {
+                    } elseif ($canvasEnrollment->getStatus() === SyncResult::STATUS_SKIPPED) {
+                        $results['skipped']++;
+                    } elseif ($canvasEnrollment->getStatus() === SyncResult::STATUS_DELETED) {
                         $results['removed']++;
                     }
-
                 } catch (SyncException $e) {
                     $logger->error(
                         'Unable to push {slateUsername} section observer enrollment for section {sectionCode}',
@@ -667,8 +657,8 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 }
             }
         }
-        return $results;
 
+        return $results;
     }
 
     /*
@@ -701,7 +691,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 $observeeId
             )
         ) {
-
             if (!array_key_exists($SectionMapping->ExternalIdentifier, $canvasEnrollments)) {
                 // create section enrollment
                 if ($pretend) {
@@ -723,7 +712,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                     $enrollmentType,
                     $observeeId
                 );
-
             } elseif (ucfirst($enrollmentType).'Enrollment' != $canvasEnrollments[$SectionMapping->ExternalIdentifier]['type']) {
                 if ($pretend) {
                     return new SyncResult(
@@ -754,8 +742,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                         $logger,
                         $observeeId
                     );
-
-
                 } catch (SyncException $e) {
                     $logger->error(
                         'Unable to update enrollment type for {slateUsername} in {sectionCode} from: {originalEnrollmentType} to: {enrollmentType}',
@@ -791,7 +777,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                     ]
                 );
             }
-
         } elseif ($canvasEnrollments[$SectionMapping->ExternalIdentifier]) {
             if ($pretend) {
                 return new SyncResult(
@@ -813,7 +798,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 strtolower(str_replace('Enrollment', '', $canvasEnrollments[$SectionMapping->ExternalIdentifier]['type'])),
                 $canvasEnrollments[$SectionMapping->ExternalIdentifier]['id']
             );
-
         } else {
             // skip sections that users are not enrolled in
             return new SyncResult(
@@ -887,7 +871,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
         ];
 
-        foreach (Section::getAllByWhere($sectionConditions) AS $Section) {
+        foreach (Section::getAllByWhere($sectionConditions) as $Section) {
             $canvasSection = null;
 
             // build section title
@@ -911,7 +895,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             if (!count($Section->Students)) {
                 $results['skipped']['sections']++;
                 $Job->notice(
-                    'Skippin gsection {sectionCode} with no students.',
+                    'Skipping section {sectionCode} with no students.',
                     [
                         'sectionCode' => $Section->Code
                     ]
@@ -939,53 +923,50 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                             'sectionCode' => $Section->Code
                         ]
                     );
-                    continue;
-                }
+                } else {
+                    $canvasResponse = CanvasAPI::createCourse([
+                        'account_id' => CanvasAPI::$accountID,
+                        'course[name]' => $sectionTitle,
+                        'course[course_code]' => $Section->Code,
+                        'course[start_at]' => $Section->Term->StartDate,
+                        'course[end_at]' => $Section->Term->EndDate,
+                        'course[sis_course_id]' => $Section->Code
+                    ]);
 
-                $canvasResponse = CanvasAPI::createCourse([
-                    'account_id' => CanvasAPI::$accountID,
-                    'course[name]' => $sectionTitle,
-                    'course[course_code]' => $Section->Code,
-                    'course[start_at]' => $Section->Term->StartDate,
-                    'course[end_at]' => $Section->Term->EndDate,
-                    'course[sis_course_id]' => $Section->Code
-                ]);
-
-                $Job->debug(
-                    'Attempting to create canvas course for {sectionTitle} ({sectionCode}).',
-                    [
-                        'sectionTitle' => $sectionTitle,
-                        'sectionCode' => $Section->Code,
-                        'canvasResponse' => $canvasResponse
-                    ]
-                );
-
-                if (empty($canvasResponse['id'])) {
-                    $results['failed']['courses']++;
-                    $Job->error(
-                        'Failed to create canvas course for {sectionTitle} ({sectionCode})',
+                    $Job->debug(
+                        'Attempting to create canvas course for {sectionTitle} ({sectionCode}).',
                         [
                             'sectionTitle' => $sectionTitle,
-                            'sectionCode' => $Section->Code
+                            'sectionCode' => $Section->Code,
+                            'canvasResponse' => $canvasResponse
                         ]
                     );
-                    continue;
+
+                    if (empty($canvasResponse['id'])) {
+                        $results['failed']['courses']++;
+                        $Job->error(
+                            'Failed to create canvas course for {sectionTitle} ({sectionCode})',
+                            [
+                                'sectionTitle' => $sectionTitle,
+                                'sectionCode' => $Section->Code
+                            ]
+                        );
+                    } else {
+                        $courseMappingData['ExternalIdentifier'] = $canvasResponse['id'];
+                        $CourseMapping = Mapping::create($courseMappingData, true);
+                        $results['created']['courses']++;
+
+                        $Job->notice(
+                            'Created canvas section for course {sectionTitle} ({sectionCode}), saved mapping to new canvas course #{canvasCourseExternalId}',
+                            [
+                                'sectionTitle' => $sectionTitle,
+                                'sectionCode' => $Section->Code,
+                                'canvasCourseExternalId' => $canvasResponse['id'],
+                                'canvasResponse' => $canvasResponse
+                            ]
+                        );
+                    }
                 }
-
-                $courseMappingData['ExternalIdentifier'] = $canvasResponse['id'];
-                $CourseMapping = Mapping::create($courseMappingData, true);
-                $results['created']['courses']++;
-
-                $Job->notice(
-                    'Created canvas section for course {sectionTitle} ({sectionCode}), saved mapping to new canvas course #{canvasCourseExternalId}',
-                    [
-                        'sectionTitle' => $sectionTitle,
-                        'sectionCode' => $Section->Code,
-                        'canvasCourseExternalId' => $canvasResponse['id'],
-                        'canvasResponse' => $canvasResponse
-                    ]
-                );
-
             } else {
                 $results['existing']['sections']++;
 
@@ -1034,38 +1015,36 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                             'canvasCourseCode' => $Section->Code
                         ]
                     );
-                    continue;
+                } else {
+                    $results['updated']['courses']++;
+
+                    $changes = [];
+                    foreach ($canvasTo as $field => $to) {
+                        $changes[$field] = [
+                            'from' => $canvasFrom[$field],
+                            'to' => $to
+                        ];
+                    }
+
+                    $Job->notice('Updating course {canvasCourseCode}', [
+                        'action' => 'update',
+                        'changes' => $changes,
+                        'canvasCourseCode' => $Section->Code
+                    ]);
+
+                    if (!$pretend) {
+                        $canvasResponse = CanvasAPI::updateCourse($CourseMapping->ExternalIdentifier, $canvasTo);
+                        $Job->debug(
+                            'Canvas course {canvasCourseCode} updated',
+                            [
+                                'canvasCourseCode' => $Section->Code,
+                                'canvasResponse' => $canvasResponse
+                            ]
+                        );
+                    }
                 }
-
-                $results['updated']['courses']++;
-
-                $changes = [];
-                foreach ($canvasTo AS $field => $to) {
-                    $changes[$field] = [
-                        'from' => $canvasFrom[$field],
-                        'to' => $to
-                    ];
-                }
-
-                $Job->notice('Updating course {canvasCourseCode}', [
-                    'action' => 'update',
-                    'changes' => $changes,
-                    'canvasCourseCode' => $Section->Code
-                ]);
-
-                if ($pretend) {
-                    continue;
-                }
-
-                $canvasResponse = CanvasAPI::updateCourse($CourseMapping->ExternalIdentifier, $canvasTo);
-                $Job->debug(
-                    'Canvas course {canvasCourseCode} updated',
-                    [
-                        'canvasCourseCode' => $Section->Code,
-                        'canvasResponse' => $canvasResponse
-                    ]
-                );
             }
+
 
             // sync section
             $sectionMappingData = [
@@ -1076,7 +1055,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             ];
 
             if (!$SectionMapping = Mapping::getByWhere($sectionMappingData)) {
-
                 if ($pretend) {
                     $results['created']['sections']++;
                     $Job->notice(
@@ -1085,49 +1063,46 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                             'sectionTitle' => $sectionTitle
                         ]
                     );
-                    continue;
-                }
+                } else {
+                    $canvasResponse = CanvasAPI::createSection($CourseMapping->ExternalIdentifier, [
+                        'course_section[name]' => $sectionTitle,
+                        'course_section[start_at]' => $Section->Term->StartDate,
+                        'course_section[end_at]' => $Section->Term->EndDate,
+                        'course_section[sis_section_id]' => $Section->Code
+                    ]);
 
-                $canvasResponse = CanvasAPI::createSection($CourseMapping->ExternalIdentifier, [
-                    'course_section[name]' => $sectionTitle,
-                    'course_section[start_at]' => $Section->Term->StartDate,
-                    'course_section[end_at]' => $Section->Term->EndDate,
-                    'course_section[sis_section_id]' => $Section->Code
-                ]);
-
-                $Job->debug(
-                    'Attempting to create canvas section for {sectionTitle} ({sectionCode}).',
-                    [
-                        'sectionTitle' => $sectionTitle,
-                        'sectionCode' => $Section->Code,
-                        'canvasResponse' => $canvasResponse
-                    ]
-                );
-
-                if (empty($canvasResponse['id'])) {
-                    $results['failed']['sections']++;
-                    $Job->error(
-                        'Failed to create canvas section',
+                    $Job->debug(
+                        'Attempting to create canvas section for {sectionTitle} ({sectionCode}).',
                         [
+                            'sectionTitle' => $sectionTitle,
+                            'sectionCode' => $Section->Code,
                             'canvasResponse' => $canvasResponse
                         ]
                     );
-                    continue;
+
+                    if (empty($canvasResponse['id'])) {
+                        $results['failed']['sections']++;
+                        $Job->error(
+                            'Failed to create canvas section',
+                            [
+                                'canvasResponse' => $canvasResponse
+                            ]
+                        );
+                    } else {
+                        $sectionMappingData['ExternalIdentifier'] = $canvasResponse['id'];
+                        $SectionMapping = Mapping::create($sectionMappingData, true);
+
+                        $results['created']['sections']++;
+                        $Job->notice(
+                            'Created canvas section for $sectionTitle, saved mapping to new canvas section #{$canvasResponse[id]}',
+                            [
+                                'sectionTitle' => $sectionTitle,
+                                'canvasSectionExternalId' => $canvasResponse['id'],
+                                'canvasResponse' => $canvasResponse
+                            ]
+                        );
+                    }
                 }
-
-                $sectionMappingData['ExternalIdentifier'] = $canvasResponse['id'];
-                $SectionMapping = Mapping::create($sectionMappingData, true);
-
-                $results['created']['sections']++;
-                $Job->notice(
-                    'Created canvas section for $sectionTitle, saved mapping to new canvas section #{$canvasResponse[id]}',
-                    [
-                        'sectionTitle' => $sectionTitle,
-                        'canvasSectionExternalId' => $canvasResponse['id'],
-                        'canvasResponse' => $canvasResponse
-                    ]
-                );
-
             } else {
                 $results['existing']['sections']++;
 
@@ -1165,49 +1140,42 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 }
 
                 if (empty($canvasTo)) {
-                    $Job->notice(
+                    $Job->debug(
                         'Canvas section {sectionTitle} matches Slate section.',
                         [
                             'sectionTitle' => $sectionTitle
                         ]
                     );
-                    continue;
                 } else {
-                    $Job->notice(
-                        'Found changes for canvas section {sectionTitle}. Updating section in canvas...',
-                        [
-                            'sectionTitle' => $sectionTitle
-                        ]
-                    );
+                    if (!$pretend) {
+                        $canvasResponse = CanvasAPI::updateSection($SectionMapping->ExternalIdentifier, $canvasTo);
+                        $Job->debug(
+                            'Canvas update section response for section: {sectionTitle}',
+                            [
+                                'sectionTitle' => $sectionTitle,
+                                'canvasResponse' => $canvasResponse
+                            ]
+                        );
+                    }
+
+                    $changes = [];
+                    foreach ($canvasTo as $field => $to) {
+                        $changes[$field] = [
+                            'from' => $canvasFrom[$field],
+                            'to' => $to
+                        ];
+                    }
+
+                    $Job->notice('Updating section {sectionTitle}', [
+                        'action' => 'update',
+                        'changes' => $changes,
+                        'sectionTitle' => $sectionTitle
+                    ]);
+
+                    $results['updated']['sections']++;
                 }
-
-                if (!$pretend) {
-                    $canvasResponse = CanvasAPI::updateSection($SectionMapping->ExternalIdentifier, $canvasTo);
-                    $Job->debug(
-                        'Canvas update section response for section: {sectionTitle}',
-                        [
-                            'sectionTitle' => $sectionTitle,
-                            'canvasResponse' => $canvasResponse
-                        ]
-                    );
-                }
-
-                $changes = [];
-                foreach ($canvasTo AS $field => $to) {
-                    $changes[$field] = [
-                        'from' => $canvasFrom[$field],
-                        'to' => $to
-                    ];
-                }
-
-                $Job->notice('Updating section {sectionTitle}', [
-                    'action' => 'update',
-                    'changes' => $changes,
-                    'sectionTitle' => $sectionTitle
-                ]);
-
-                $results['sections']['sectionsUpdated']++;
             }
+
 
             // sync enrollments
             $canvasEnrollments = $slateEnrollments = [
@@ -1217,7 +1185,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             ];
 
             // get all enrollments, sort by type and index by username
-            foreach (CanvasAPI::getEnrollmentsBySection($SectionMapping->ExternalIdentifier) AS $canvasEnrollment) {
+            foreach (CanvasAPI::getEnrollmentsBySection($SectionMapping->ExternalIdentifier) as $canvasEnrollment) {
                 if ($canvasEnrollment['type'] == 'TeacherEnrollment') {
                     $canvasEnrollments['teachers'][$canvasEnrollment['user']['sis_user_id']] = $canvasEnrollment;
                 } elseif ($canvasEnrollment['type'] == 'StudentEnrollment') {
@@ -1228,7 +1196,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             }
 
             // add teachers to canvas
-            foreach ($Section->Teachers AS $Teacher) {
+            foreach ($Section->Teachers as $Teacher) {
                 $slateEnrollments['teachers'][] = $Teacher->Username;
                 $results['analyzed']['enrollments']++;
                 // check if teacher needs enrollment
@@ -1261,7 +1229,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
             // remove teachers from canvas
             if (!empty($Job->Config['removeTeachers'])) {
-                foreach (array_diff(array_keys($canvasEnrollments['teachers']), $slateEnrollments['teachers']) AS $teacherUsername) {
+                foreach (array_diff(array_keys($canvasEnrollments['teachers']), $slateEnrollments['teachers']) as $teacherUsername) {
                     $enrollmentId = $canvasEnrollments['teachers'][$teacherUsername]['id'];
                     if ($Teacher = User::getByUsername($teacherUsername)) { // todo: handle accounts deleted in slate?
                         if (!$pretend) {
@@ -1291,7 +1259,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             }
 
             // add students to canvas
-            foreach ($Section->Students AS $Student) {
+            foreach ($Section->Students as $Student) {
                 $slateEnrollments['students'][] = $Student->Username;
                 $enrollStudent = !array_key_exists($Student->Username, $canvasEnrollments['students']);
 
@@ -1315,7 +1283,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                                 'slateUsername' => $Student->Username,
                                 'enrollmentType' => 'student'
                             ]
-
                         );
                     }
                 }
@@ -1387,7 +1354,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 #            }
 
             // remove students from canvas
-            foreach (array_diff(array_keys($canvasEnrollments['students']), $slateEnrollments['students']) AS $studentUsername) {
+            foreach (array_diff(array_keys($canvasEnrollments['students']), $slateEnrollments['students']) as $studentUsername) {
                 $enrollmentId = $canvasEnrollments['students'][$studentUsername]['id'];
                 if ($Student = Student::getByUsername($studentUsername)) { // todo: handle accounts deleted in slate?
                     if (!$pretend) {
@@ -1399,7 +1366,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                                 'student',
                                 $enrollmentId
                             );
-
                         } catch (SyncException $e) {
                             $Job->logException($e);
                         }
@@ -1469,7 +1435,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
                 ]
             );
-
         } catch (\Exception $e) {
             throw new SyncException(
                 'Failed to create {enrollmentType} enrollment for {slateUsername} - {sectionCode} in Canvas',
@@ -1542,7 +1507,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
                 ]
             );
-
         } catch (\Exception $e) {
             throw new SyncException(
                 'Unable to delete {enrollmentType} enrollment for {slateUsername} in {sectionCode}',
@@ -1591,5 +1555,4 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
         return $cache[$userId];
     }
-
 }
