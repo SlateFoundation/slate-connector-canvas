@@ -1095,7 +1095,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
                         $results['created']['sections']++;
                         $Job->notice(
-                            'Created canvas section for $sectionTitle, saved mapping to new canvas section #{$canvasResponse[id]}',
+                            'Created canvas section for {sectionTitle}, saved mapping to new canvas section #{canvasSectionExternalId}',
                             [
                                 'sectionTitle' => $sectionTitle,
                                 'canvasSectionExternalId' => $canvasResponse['id'],
