@@ -71,6 +71,13 @@
             </p>
             <p>
                 <label>
+                    Include empty sections
+                    <input type="checkbox" name="includeEmptySections" value="false" {refill field=includeEmptySections checked="true" default="false"}>
+                </label>
+                Check to include course sections in the push that don't have any students enrolled yet
+            </p>
+            <p>
+                <label>
                     Remove Teachers
                     <input type="checkbox" name="removeTeachers" value="false" {refill field=pushUsers checked="true" default="false"}>
                 </label>

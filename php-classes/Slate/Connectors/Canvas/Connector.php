@@ -153,6 +153,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
         $config['masterTerm'] = !empty($requestData['masterTerm']) ? $requestData['masterTerm'] : null;
         $config['pushSections'] = !empty($requestData['pushSections']);
         $config['removeTeachers'] = !empty($requestData['removeTeachers']);
+        $config['includeEmptySections'] = !empty($requestData['includeEmptySections']);
 
         return $config;
     }
@@ -892,7 +893,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
             $results['analyzed']['sections']++;
 
-            if (!count($Section->Students)) {
+            if (!count($Section->Students) && empty($Job->Config['includeEmptySections'])) {
                 $results['skipped']['sections']++;
                 $Job->notice(
                     'Skipping section {sectionCode} with no students.',
