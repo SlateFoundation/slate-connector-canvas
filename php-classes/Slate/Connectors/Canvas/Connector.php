@@ -225,12 +225,10 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
         $results = [
             'analyzed' => 0,
-            'existing' => 0,
+            'created' => 0,
+            'updated' => 0,
             'skipped' => 0,
-            'failed' => 0,
-            'logins' => [
-                'updated' => 0
-            ]
+            'failed' => 0
         ];
 
         foreach (User::getAllByWhere($conditions) as $User) {
@@ -251,10 +249,6 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                     $results['created']++;
                 } elseif ($syncResult->getStatus() === SyncResult::STATUS_UPDATED) {
                     $results['updated']++;
-                    $results['existing']++;
-                    if ($syncResult->getContext('updateContext') == 'login') {
-                        $results['logins']['updated']++;
-                    }
                 } elseif ($syncResult->getStatus() === SyncResult::STATUS_SKIPPED) {
                     continue;
                 }
@@ -262,12 +256,12 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 $Job->logException($e);
                 $results['failed']++;
             }
-
+/*
             try {
                 $enrollmentResult = static::pushEnrollments($User, $Job, $pretend);
             } catch (SyncException $e) {
                 $Job->logException($e);
-            }
+            }*/
         }
 
         return $results;
@@ -356,10 +350,11 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                     //$Job->log('<blockquote>Canvas update user response: ' . var_export($canvasResponse, true) . "</blockquote>\n");
                 }
 
-                $logger->debug(
+                $logger->notice(
                     'Updated user {slateUsername}',
                     [
-                        'slateUsername' => $User->Username
+                        'slateUsername' => $User->Username,
+                        'changes' => $changes['user']
                     ]
                 );
             } else {
@@ -374,18 +369,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             // sync login
             if (!empty($canvasLoginChanges)) {
                 $changes['login'] = $canvasLoginChanges;
-                if (!$pretend) {
-                    $canvasResponse = CanvasAPI::updateLogin($logins[0]['id'], DataUtil::extractToFromDelta($canvasLoginChanges));
-                    $logger->debug(
-                        'Updated canvas login for user {slateUsername}',
-                        [
-                            'slateUsername' => $User->Username,
-                            'canvasLoginChanges' => $canvasLoginChanges,
-                            'canvasResponse' => $canvasResponse
-                        ]
-                    );
-                    //$Job->log('<blockquote>Canvas update login response: ' . var_export($canvasResponse, true) . "</blockquote>\n");
-                }
+
                 // get existing login ID
                 $logins = CanvasAPI::getLoginsByUser($Mapping->ExternalIdentifier);
                 //$Job->log('<blockquote>Canvas logins response: ' . var_export($logins, true) . "</blockquote>\n");
@@ -401,13 +385,26 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                     );
                 }
 
-                $logger->debug(
-                    'Updated login for user {slateUsername}',
+                $logger->notice(
+                    'Updating login for user {slateUsername}',
                     [
                         'slateUsername' => $User->Username,
                         'changes' => $changes['login']
                     ]
                 );
+
+                if (!$pretend) {
+                    $canvasResponse = CanvasAPI::updateLogin($logins[0]['id'], DataUtil::extractToFromDelta($canvasLoginChanges));
+                    $logger->debug(
+                        'Updated canvas login for user {slateUsername}',
+                        [
+                            'slateUsername' => $User->Username,
+                            'canvasLoginChanges' => $canvasLoginChanges,
+                            'canvasResponse' => $canvasResponse
+                        ]
+                    );
+                    //$Job->log('<blockquote>Canvas update login response: ' . var_export($canvasResponse, true) . "</blockquote>\n");
+                }
             } else {
                 $logger->debug(
                     'Canvas login for {slateUsername} matches Slate login',
@@ -1426,7 +1423,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 $enrollmentData
             );
 
-            $logger->debug(
+            $logger->notice(
                 'Creating {enrollmentType} enrollment for {slateUsername} in {sectionCode}',
                 [
                     'enrollmentType' => $enrollmentType,
