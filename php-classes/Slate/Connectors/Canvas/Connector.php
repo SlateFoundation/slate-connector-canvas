@@ -305,10 +305,10 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             $canvasUserChanges = [];
             $canvasLoginChanges = [];
 
-            if ($canvasUser['name'] != $User->FullName) {
+            if ($canvasUser['name'] != $User->PreferredFullName) {
                 $canvasUserChanges['user[name]'] = [
                     'from' => $canvasUser['name'],
-                    'to' => $User->FullName
+                    'to' => $User->PreferredFullName
                 ];
             }
 
@@ -451,8 +451,8 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             }
 
             $canvasResponse = CanvasAPI::createUser([
-                'user[name]' => $User->FullName,
-                'user[short_name]' => $User->FirstName,
+                'user[name]' => $User->PreferredFullName,
+                'user[short_name]' => $User->PreferredName ?: $User->FirstName,
                 'pseudonym[unique_id]' => $User->Email,
                 'pseudonym[sis_user_id]' => $User->Username,
                 'communication_channel[type]' => 'email',
