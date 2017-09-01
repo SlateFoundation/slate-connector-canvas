@@ -39,6 +39,8 @@
                 Email recipient or list of recipients to send post-sync report to
             </p>
         </fieldset>
+
+
         <fieldset>
             <legend>User Accounts</legend>
             <p>
@@ -49,11 +51,21 @@
                 Check to push users to Canvas
             </p>
         </fieldset>
+
+
         <fieldset>
             <legend>Courses Sections & Enrollments</legend>
             <p>
                 <label>
-                    Master Term
+                    Push Sections
+                    <input type="checkbox" name="pushSections" value="true" {refill field=pushSections checked="true" default="false"}>
+                </label>
+                Check to push sections
+            </p>
+            <hr>
+            <p>
+                <label>
+                    Slate Master Term
                     <select name="masterTerm">
                         {foreach item=Term from=Slate\Term::getAllMaster()}
                             <option value="{$Term->Handle}" {refill field=masterTerm selected=$Term->Handle}>{$Term->Title|escape}</option>
@@ -64,10 +76,16 @@
             </p>
             <p>
                 <label>
-                    Push Sections+Enrollments
-                    <input type="checkbox" name="pushSections" value="true" {refill field=pushSections checked="true" default="false"}>
+                    Canvas Term
+                    {$termsData = RemoteSystems\Canvas::getTerms()}
+                    <select name="canvasTerm">
+                        <option value="">Don't set</option>
+                        {foreach item=termData from=$termsData.enrollment_terms}
+                            <option value="{$termData.id}" {refill field=canvasTerm selected=$termData.id}>{$termData.name|escape}</option>
+                        {/foreach}
+                    </select>
+                    Canvas section to assign each section to
                 </label>
-                Check to push sections and enrollments to Canvas
             </p>
             <p>
                 <label>
@@ -78,11 +96,27 @@
             </p>
             <p>
                 <label>
-                    Remove Teachers
+                    Sync Participant Enrollments
+                    <input type="checkbox" name="syncParticiants" value="true" {refill field=syncParticiants checked="true" default="false"}>
+                </label>
+                Check to sync section teacher and student participant enrollments to Canvas
+            </p>
+            <p>
+                <label>
+                    ↳ Remove Teachers
                     <input type="checkbox" name="removeTeachers" value="false" {refill field=pushUsers checked="true" default="false"}>
                 </label>
                 Check to unenroll teachers from Canvas courses if they're no longer enrolled in Slate
             </p>
+            {*
+            <p>
+                <label>
+                    Sync Observer Enrollments
+                    <input type="checkbox" name="syncObservers" value="true" {refill field=syncObservers checked="true" default="false"}>
+                </label>
+                Check to sync section parent and guardian observer enrollments to Canvas
+            </p>
+            *}
         </fieldset>
 
         <input type="submit" value="Synchronize">
