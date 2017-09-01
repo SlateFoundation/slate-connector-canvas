@@ -435,7 +435,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
             if ($pretend) {
                 $logger->notice(
-                    'Created canvas user for {slateUsername})',
+                    'Created canvas user for {slateUsername}',
                     [
                         'slateUsername' => $User->Username
                     ]
@@ -443,7 +443,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
                 return new SyncResult(
                     SyncResult::STATUS_CREATED,
-                    'Created canvas user for {slateUsername}, savedmapping to new canvas user (pretend-mode)',
+                    'Created canvas user for {slateUsername}, saved mapping to new canvas user (pretend-mode)',
                     [
                         'slateUsername' => $User->Username
                     ]
@@ -459,8 +459,8 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 'communication_channel[address]' => $User->Email
             ]);
 
-            $logger->debug(
-                'Creating canvas user for {slateUsername}',
+            $logger->notice(
+                'Created canvas user for {slateUsername}',
                 [
                     'slateUsername' => $User->Username,
                     'canvasResponse' => $canvasResponse
