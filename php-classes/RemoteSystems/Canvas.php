@@ -58,6 +58,17 @@ class Canvas
     }
 
 
+    // Enrollment Terms: https://canvas.instructure.com/doc/api/enrollment_terms.html
+    public static function getTerms($accountID = null)
+    {
+        if (!$accountID) {
+            $accountID = static::$accountID;
+        }
+
+        return static::executeRequest("accounts/$accountID/terms");
+    }
+
+
     // Users: https://canvas.instructure.com/doc/api/users.html
     public static function getUser($userID)
     {
