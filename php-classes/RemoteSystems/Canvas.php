@@ -107,9 +107,11 @@ class Canvas
 
 
     // Courses: https://canvas.instructure.com/doc/api/courses.html
-    public static function getCourse($courseID)
+    public static function getCourse($courseID, array $include = [])
     {
-        return static::executeRequest("courses/$courseID");
+        return static::executeRequest("courses/$courseID", 'GET', implode('&', array_map(function ($value) {
+            return 'include[]='.$value;
+        }, $include)));
     }
 
     public static function createCourse($data, $accountID = null)
