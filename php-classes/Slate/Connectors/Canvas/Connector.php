@@ -35,6 +35,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 {
     use IdentityConsumerTrait {
         getSAMLNameId as getDefaultSAMLNameId;
+        getLaunchUrl as getDefaultLaunchUrl;
     }
 
     public static $title = 'Canvas';
@@ -49,7 +50,13 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             throw new \Exception('Canvas host is not configured');
         }
 
-        Site::redirect('https://'.CanvasAPI::$canvasHost);
+        $url = 'https://'.CanvasAPI::$canvasHost;
+
+        if (!empty($_GET['course'])) {
+            $url .= '/courses/' . urlencode($_GET['course']);
+        }
+
+        Site::redirect($url);
     }
 
     /**
@@ -141,6 +148,15 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
         }
 
         return static::getDefaultSAMLNameId($Person);
+    }
+
+    public static function getLaunchUrl(Mapping $Mapping = null)
+    {
+        if ($Mapping && $Mapping->ExternalKey == 'course[id]') {
+            return static::getBaseUrl() . '/launch?course=' . $Mapping->ExternalIdentifier;
+        }
+        
+        return static::getDefaultLaunchUrl($Mapping);
     }
 
     // workflow implementations
