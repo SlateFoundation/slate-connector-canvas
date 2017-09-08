@@ -22,6 +22,7 @@ use Emergence\People\IPerson;
 use Emergence\People\Person;
 use Emergence\People\User;
 use Emergence\Util\Data as DataUtil;
+use Emergence\Util\Url as UrlUtil;
 use Emergence\SAML2\Connector as SAML2Connector;
 use Emergence\Connectors\SyncResult;
 use Emergence\Connectors\Exceptions\SyncException;
@@ -336,6 +337,20 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 $canvasUserChanges['user[short_name]'] = [
                     'from' => $canvasUser['short_name'],
                     'to' => $shortName
+                ];
+            }
+
+            if ($canvasUser['primary_email'] != $User->Email) {
+                $canvasUserChanges['user[email]'] = [
+                    'from' => $canvasUser['primary_email'],
+                    'to' => $User->Email
+                ];
+            }
+
+            if ($User->PrimaryPhoto && empty($canvasUser['avatar_url'])) {
+                $canvasUserChanges['user[avatar][url]'] = [
+                    'from' => $canvasUser['avatar_url'],
+                    'to' => UrlUtil::buildAbsolute($User->PrimaryPhoto->getThumbnailRequest(300, 300))
                 ];
             }
 
