@@ -156,7 +156,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
         if ($Mapping && $Mapping->ExternalKey == 'course[id]') {
             return static::getBaseUrl() . '/launch?course=' . $Mapping->ExternalIdentifier;
         }
-        
+
         return static::getDefaultLaunchUrl($Mapping);
     }
 
@@ -693,6 +693,25 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
         return $results;
     }
 
+
+    protected static function getCanvasEnrollments(IPerson $User)
+    {
+        static $enrollmentsByUser = [];
+
+        if (!isset($enrollmentsByUser[$User->ID])) {
+            $enrollmentsByUser[$User->ID] = [];
+
+            foreach (CanvasAPI::getEnrollmentsByUser(static::_getCanvasUserId($User->ID)) as $enrollment) {
+                $enrollmentsByUser[$User->ID][$enrollment['course_section_id']] = [
+                    'id' => $enrollment['id'],
+                    'type' => $enrollment['type']
+                ];
+            }
+        }
+
+        return $enrollmentsByUser[$User->ID];
+    }
+
     /*
     * Push Slate User section enrollment to Canvas API.
     * @param $User User object
@@ -708,10 +727,8 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
         $logger = static::getLogger($logger);
 
         // index canvas enrollments by course_section_id
-        $canvasEnrollments = [];
-        foreach (CanvasAPI::getEnrollmentsByUser(static::_getCanvasUserId($User->ID)) as $canvasUserEnrollment) {
-            $canvasEnrollments[$canvasUserEnrollment['course_section_id']] = $canvasUserEnrollment;
-        }
+        $canvasEnrollments = static::getCanvasEnrollments($User);
+
 
         if (
             SectionParticipant::getByWhere([
