@@ -24,7 +24,7 @@ class Canvas
         $ch = curl_init();
 
         if ($requestMethod == 'GET') {
-            $url .= '?'.(is_string($params) ? $params : http_build_query($params));
+            $url .= '?'.(is_string($params) ? $params : preg_replace('/(%5B)\d+(%5D=)/i', '$1$2', http_build_query($params))); // strip numeric indexes in array keys
         } else {
             if ($requestMethod == 'POST') {
                 curl_setopt($ch, CURLOPT_POST, true);
@@ -181,9 +181,12 @@ class Canvas
         return static::executeRequest("sections/$sectionID/enrollments", 'GET', ['per_page' => 1000]);
     }
 
-    public static function getEnrollmentsByUser($userId)
+    public static function getEnrollmentsByUser($userId, array $state = ['active', 'invited', 'creation_pending', 'deleted', 'rejected', 'completed', 'inactive'])
     {
-        return static::executeRequest("users/$userId/enrollments", 'GET');
+        return static::executeRequest("users/$userId/enrollments", 'GET', [
+            'state' => $state,
+            'per_page' => 1000
+        ]);
     }
 
     public static function createEnrollmentsForSection($sectionID, $data)
