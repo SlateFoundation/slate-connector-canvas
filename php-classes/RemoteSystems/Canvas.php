@@ -8,6 +8,14 @@ class Canvas
     public static $apiToken;
     public static $accountID;
 
+
+    private static $logger;
+    public static function setLogger(\Psr\Log\LoggerInterface $logger)
+    {
+        static::$logger = $logger;
+    }
+
+
     public static function executeRequest($path, $requestMethod = 'GET', $params = [], $headers = [])
     {
         $url = 'https://'.static::$canvasHost.'/api/v1/'.$path;
@@ -29,6 +37,10 @@ class Canvas
 
         if (!empty($headers)) {
             $requestHeaders = array_merge($requestHeaders, $headers);
+        }
+
+        if (static::$logger) {
+            static::$logger->debug("$requestMethod $url");
         }
 
         curl_setopt($ch, CURLOPT_URL, $url);
