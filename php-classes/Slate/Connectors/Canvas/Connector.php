@@ -1529,19 +1529,12 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
     */
     protected static function removeSectionEnrollment(IPerson $User, Mapping $SectionMapping, LoggerInterface $logger, $enrollmentType, $enrollmentId, $enrollmentTask = 'conclude')
     {
-        $validEnrollmentTypes = [
-            'student',
-            'teacher',
-            'observer'
-        ];
-        switch ($enrollmentType) {
-            case 'student':
-            case 'teacher':
-            case 'observer':
-                break;
-
-            default:
-                throw new \Exception("Enrollment type invalid. ($type)");
+        if (
+            $enrollmentType != 'student'
+            && $enrollmentType != 'teacher'
+            && $enrollmentType != 'observer'
+        ) {
+                throw new \Exception("Cannot remove enrollment type: $enrollmentType");
         }
 
         if (!isset($enrollmentId)) {
