@@ -571,8 +571,10 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 case 'Student':
                     $userEnrollmentType = 'student';
                     break;
-                case 'Teacher':
                 case 'Assistant':
+                    $userEnrollmentType = 'ta';
+                    break;
+                case 'Teacher':
                     $userEnrollmentType = 'teacher';
                     break;
                 case 'Observer':
