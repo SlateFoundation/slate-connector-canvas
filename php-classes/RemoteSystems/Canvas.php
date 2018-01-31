@@ -181,12 +181,15 @@ class Canvas
         return static::executeRequest("sections/$sectionID/enrollments", 'GET', ['per_page' => 1000]);
     }
 
-    public static function getEnrollmentsByUser($userId, array $state = ['active', 'invited', 'creation_pending', 'deleted', 'rejected', 'completed', 'inactive'])
+    public static function getEnrollmentsByUser($userId, array $options = [])
     {
-        return static::executeRequest("users/$userId/enrollments", 'GET', [
-            'state' => $state,
+        $options = array_merge([
+            'state' => ['active', 'invited', 'creation_pending', 'deleted', 'rejected', 'completed', 'inactive'],
+            'type' => ['StudentEnrollment', 'TeacherEnrollment', 'ObserverEnrollment'],
             'per_page' => 1000
-        ]);
+        ], $options);
+
+        return static::executeRequest("users/$userId/enrollments", 'GET', $options);
     }
 
     public static function createEnrollmentsForSection($sectionID, $data)
