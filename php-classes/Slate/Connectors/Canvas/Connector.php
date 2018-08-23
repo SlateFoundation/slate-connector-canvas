@@ -39,6 +39,11 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
         getLaunchUrl as getDefaultLaunchUrl;
     }
 
+
+    public static $sectionSkipper;
+    public static $sectionTitleBuilder = [__CLASS__, 'buildSectionTitle'];
+
+
     public static $title = 'Canvas';
     public static $connectorId = 'canvas';
 
@@ -159,6 +164,18 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
         return static::getDefaultLaunchUrl($Mapping);
     }
+
+    public static function buildSectionTitle(Section $Section)
+    {
+        $sectionTitle = $Section->Title;
+
+        if ($Section->Schedule) {
+            $sectionTitle .= ' (' . $Section->Schedule->Title . ')';
+        }
+
+        return $sectionTitle;
+    }
+
 
     // workflow implementations
     protected static function _getJobConfig(array $requestData)
@@ -916,21 +933,31 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
 
             'skipped' => [
                 'courses' => 0,
-                'sections' => 0
+                'sections' => []
             ]
 
         ];
 
         foreach (Section::getAllByWhere($sectionConditions) as $Section) {
+            if (
+                is_callable(static::$sectionSkipper)
+                && ($skipCode = call_user_func(static::$sectionSkipper, $Section))
+            ) {
+                $results['skipped']['sections'][$skipCode]++;
+                $Job->notice(
+                    'Skipping section {sectionCode} via configured skipper: {skipCode}',
+                    [
+                        'sectionCode' => $Section->Code,
+                        'skipCode' => $skipCode
+                    ]
+                );
+                continue;
+            }
+            
             $canvasSection = null;
 
             // build section title
-            // TODO: use configurable formatter
-            $sectionTitle = $Section->Title;
-
-            if ($Section->Schedule) {
-                $sectionTitle .= ' (' . $Section->Schedule->Title . ')';
-            }
+            $sectionTitle = call_user_func(static::$sectionTitleBuilder, $Section);
 
             $Job->debug(
                 'Analyzing Slate section {sectionTitle} ({sectionCode})',
@@ -943,7 +970,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             $results['analyzed']['sections']++;
 
             if (!count($Section->Students) && empty($Job->Config['includeEmptySections'])) {
-                $results['skipped']['sections']++;
+                $results['skipped']['sections']['no-students']++;
                 $Job->notice(
                     'Skipping section {sectionCode} with no students.',
                     [
