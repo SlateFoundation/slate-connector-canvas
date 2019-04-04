@@ -10,8 +10,6 @@ use Site;
 use RemoteSystems\Canvas as CanvasAPI;
 
 
-use Emergence\Connectors\AbstractConnector;
-use Emergence\Connectors\IdentityConsumerTrait;
 use Emergence\Connectors\IIdentityConsumer;
 use Emergence\Connectors\ISynchronize;
 use Emergence\EventBus;
@@ -32,14 +30,8 @@ use Slate\Courses\Section;
 use Slate\Courses\SectionParticipant;
 use Slate\People\Student;
 
-class Connector extends AbstractConnector implements ISynchronize, IIdentityConsumer
+class Connector extends SAML2Connector implements ISynchronize, IIdentityConsumer
 {
-    use IdentityConsumerTrait {
-        getSAMLNameId as getDefaultSAMLNameId;
-        getLaunchUrl as getDefaultLaunchUrl;
-    }
-
-
     public static $sectionSkipper;
     public static $sectionTitleBuilder = [__CLASS__, 'buildSectionTitle'];
 
@@ -74,7 +66,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             'Person' => $Person
         ]);
 
-        return SAML2Connector::handleLoginRequest($Person, __CLASS__);
+        return parent::handleLoginRequest($Person, __CLASS__);
     }
 
     public static function userIsPermitted(IPerson $Person)
@@ -153,7 +145,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             ];
         }
 
-        return static::getDefaultSAMLNameId($Person);
+        return parent::getSAMLNameId($Person);
     }
 
     public static function getLaunchUrl(Mapping $Mapping = null)
@@ -162,7 +154,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
             return static::getBaseUrl() . '/launch?course=' . $Mapping->ExternalIdentifier;
         }
 
-        return static::getDefaultLaunchUrl($Mapping);
+        return parent::getLaunchUrl($Mapping);
     }
 
     public static function buildSectionTitle(Section $Section)
@@ -953,7 +945,7 @@ class Connector extends AbstractConnector implements ISynchronize, IIdentityCons
                 );
                 continue;
             }
-            
+
             $canvasSection = null;
 
             // build section title
