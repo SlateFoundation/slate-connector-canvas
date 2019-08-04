@@ -14,7 +14,7 @@ use Emergence\Connectors\IIdentityConsumer;
 use Emergence\Connectors\ISynchronize;
 use Emergence\EventBus;
 
-use Emergence\Connectors\Job;
+use Emergence\Connectors\IJob;
 use Emergence\Connectors\Mapping;
 use Emergence\People\IPerson;
 use Emergence\People\Person;
@@ -187,7 +187,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
         return $config;
     }
 
-    public static function synchronize(Job $Job, $pretend = true)
+    public static function synchronize(IJob $Job, $pretend = true)
     {
         if ($Job->Status != 'Pending' && $Job->Status != 'Completed') {
             return static::throwError('Cannot execute job, status is not Pending or Complete');
@@ -244,7 +244,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
 
     // task handlers
 
-    public static function pushUsers(Job $Job, $pretend = true)
+    public static function pushUsers(IJob $Job, $pretend = true)
     {
         $conditions = [
             'AccountLevel IS NOT NULL AND ( (AccountLevel NOT IN ("Disabled", "Contact", "User", "Staff")) OR (Class = "Slate\\\\People\\\\Student" AND AccountLevel != "Disabled") )', // no disabled accounts, non-users, guests, and non-teaching staff
@@ -875,7 +875,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
     // use job as logger and update log method
     // log all api calls
     // update references to createSectionEnrollment & removeSectionEnrollment
-    public static function pushSections(Job $Job, $pretend = true)
+    public static function pushSections(IJob $Job, $pretend = true)
     {
         if (empty($Job->Config['masterTerm'])) {
             $Job->logException(new Exception('masterTerm required to import sections'));
