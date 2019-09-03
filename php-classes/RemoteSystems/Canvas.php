@@ -2,6 +2,8 @@
 
 namespace RemoteSystems;
 
+use RuntimeException;
+
 class Canvas
 {
     public static $canvasHost;
@@ -53,7 +55,19 @@ class Canvas
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 
         $response = json_decode(curl_exec($ch), true);
+        $responseCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         curl_close($ch);
+
+        if ($responseCode >= 400 || $responseCode < 200) {
+            throw new \RuntimeException(
+                (
+                    !empty($response['errors']) ?
+                    'Canvas reports: '.$response['errors'][0]['message']
+                    : 'unknown Canvas error'
+                ),
+                $responseCode
+            );
+        }
 
         return $response;
     }

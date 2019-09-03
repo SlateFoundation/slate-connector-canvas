@@ -2,6 +2,8 @@
 
 namespace Slate\Connectors\Canvas;
 
+use RuntimeException;
+
 use Psr\Log\LogLevel;
 use Psr\Log\LoggerInterface;
 
@@ -1048,7 +1050,20 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                     ]
                 );
 
-                $canvasCourse = CanvasAPI::getCourse($CourseMapping->ExternalIdentifier);
+                try {
+                    $canvasCourse = CanvasAPI::getCourse($CourseMapping->ExternalIdentifier);
+                } catch (RuntimeException $e) {
+                    $results['failed']['courses']++;
+                    $Job->error(
+                        'Failed to fetch Canvas course {canvasId}: {canvasError} (status: {canvasStatus})',
+                        [
+                            'canvasId' => $CourseMapping->ExternalIdentifier,
+                            'canvasError' => $e->getMessage(),
+                            'canvasStatus' => $e->getCode()
+                        ]
+                    );
+                    continue;
+                }
 
                 $canvasFrom = [];
                 $canvasTo = [];
