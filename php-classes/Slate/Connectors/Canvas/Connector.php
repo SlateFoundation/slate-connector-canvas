@@ -2,6 +2,8 @@
 
 namespace Slate\Connectors\Canvas;
 
+use RuntimeException;
+
 use Psr\Log\LogLevel;
 use Psr\Log\LoggerInterface;
 
@@ -770,7 +772,9 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                     $SectionMapping,
                     $logger,
                     $enrollmentType,
-                    $observeeId
+                    [
+                        'associated_user_id' => $observeeId
+                    ]
                 );
             } elseif (ucfirst($enrollmentType).'Enrollment' != $canvasEnrollments[$SectionMapping->ExternalIdentifier]['type']) {
                 if ($pretend) {
@@ -1020,6 +1024,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                                 'sectionCode' => $Section->Code
                             ]
                         );
+                        continue;
                     } else {
                         $courseMappingData['ExternalIdentifier'] = $canvasResponse['id'];
                         $CourseMapping = Mapping::create($courseMappingData, true);
@@ -1047,7 +1052,20 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                     ]
                 );
 
-                $canvasCourse = CanvasAPI::getCourse($CourseMapping->ExternalIdentifier);
+                try {
+                    $canvasCourse = CanvasAPI::getCourse($CourseMapping->ExternalIdentifier);
+                } catch (RuntimeException $e) {
+                    $results['failed']['courses']++;
+                    $Job->error(
+                        'Failed to fetch Canvas course {canvasId}: {canvasError} (status: {canvasStatus})',
+                        [
+                            'canvasId' => $CourseMapping->ExternalIdentifier,
+                            'canvasError' => $e->getMessage(),
+                            'canvasStatus' => $e->getCode()
+                        ]
+                    );
+                    continue;
+                }
 
                 $canvasFrom = [];
                 $canvasTo = [];
@@ -1162,6 +1180,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                                 'canvasResponse' => $canvasResponse
                             ]
                         );
+                        continue;
                     } else {
                         $sectionMappingData['ExternalIdentifier'] = $canvasResponse['id'];
                         $SectionMapping = Mapping::create($sectionMappingData, true);
@@ -1259,7 +1278,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                     'observers' => []
                 ];
 
-                // get all enrollments, sort by type and index by username
+                // get all current canvas enrollments, sort by type and index by username
                 foreach (CanvasAPI::getEnrollmentsBySection($SectionMapping->ExternalIdentifier) as $canvasEnrollment) {
                     if ($canvasEnrollment['type'] == 'TeacherEnrollment') {
                         $canvasEnrollments['teachers'][$canvasEnrollment['user']['sis_user_id']] = $canvasEnrollment;
@@ -1270,17 +1289,34 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                     }
                 }
 
+                // get all current slate enrollments, sort by type and index by username
+                foreach (SectionParticipant::getAllByField('CourseSectionID', $Section->ID) as $SectionParticipant) {
+                    switch ($SectionParticipant->Role) {
+                        case 'Observer':
+                            $slateEnrollments['observers'][$SectionParticipant->Person->Username] = $SectionParticipant;
+                            break;
+                        case 'Student':
+                            $slateEnrollments['students'][$SectionParticipant->Person->Username] = $SectionParticipant;
+                            break;
+                        case 'Assistant':
+                        case 'Teacher':
+                            $slateEnrollments['teachers'][$SectionParticipant->Person->Username] = $SectionParticipant;
+                            break;
+                    }
+                }
+
                 // add teachers to canvas
-                foreach ($Section->Teachers as $Teacher) {
-                    $slateEnrollments['teachers'][] = $Teacher->Username;
+                foreach ($slateEnrollments['teachers'] as $teacherUsername => $SectionParticipant) {
                     $results['analyzed']['enrollments']++;
+
                     // check if teacher needs enrollment
-                    $enrollTeacher = !array_key_exists($Teacher->Username, $canvasEnrollments['teachers']);
+                    $enrollTeacher = !array_key_exists($teacherUsername, $canvasEnrollments['teachers']);
+
                     if ($enrollTeacher) {
                         if (!$pretend) {
                             try {
                                 $newEnrollment = static::createSectionEnrollment(
-                                    $Teacher,
+                                    $SectionParticipant->Person,
                                     $SectionMapping,
                                     $Job,
                                     'teacher'
@@ -1294,7 +1330,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                                 'Enrolling {enrollmentType} {slateUsername} into course section {sectionCode}',
                                 [
                                     'sectionCode' => $Section->Code,
-                                    'slateUsername' => $Teacher->Username,
+                                    'slateUsername' => $teacherUsername,
                                     'enrollmentType' => 'teacher'
                                 ]
                             );
@@ -1304,8 +1340,14 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
 
                 // remove teachers from canvas
                 if (!empty($Job->Config['removeTeachers'])) {
-                    foreach (array_diff(array_keys($canvasEnrollments['teachers']), $slateEnrollments['teachers']) as $teacherUsername) {
+                    $teachersToRemove = array_diff(
+                        array_keys($canvasEnrollments['teachers']),
+                        array_keys($slateEnrollments['teachers'])
+                    );
+
+                    foreach ($teachersToRemove as $teacherUsername) {
                         $enrollmentId = $canvasEnrollments['teachers'][$teacherUsername]['id'];
+
                         if ($Teacher = User::getByUsername($teacherUsername)) { // todo: handle accounts deleted in slate?
                             if (!$pretend) {
                                 try {
@@ -1324,7 +1366,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                                     'Removing {enrollmentType} enrollment for {slateUsername} from course section {sectionCode}',
                                     [
                                         'sectionCode' => $Section->Code,
-                                        'slateUsername' => $Teacher->Username,
+                                        'slateUsername' => $teacherUsername,
                                         'enrollmentType' => 'teacher'
                                     ]
                                 );
@@ -1334,18 +1376,45 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                 }
 
                 // add students to canvas
-                foreach ($Section->Students as $Student) {
-                    $slateEnrollments['students'][] = $Student->Username;
-                    $enrollStudent = !array_key_exists($Student->Username, $canvasEnrollments['students']);
+                foreach ($slateEnrollments['students'] as $studentUsername => $SectionParticipant) {
+                    $results['analyzed']['enrollments']++;
+
+                    $enrollStudent = !array_key_exists($studentUsername, $canvasEnrollments['students']);
+
+                    if ($SectionParticipant->StartDate) {
+                        $startAt = CanvasAPI::formatTimestamp($SectionParticipant->StartDate);
+                    } else {
+                        $startAt = null;
+                    }
+
+                    if ($SectionParticipant->EndDate) {
+                        // treat "empty" time component as end of day
+                        if (date('H:i:s', $SectionParticipant->EndDate) == '00:00:00') {
+                            $endAt = CanvasAPI::formatTimestamp($SectionParticipant->EndDate + (60*60*24-1));
+                        } else {
+                            $endAt = CanvasAPI::formatTimestamp($SectionParticipant->EndDate);
+                        }
+
+                        // end_at will be ignored if start_at isn't set too
+                        if (!$startAt) {
+                            $startAt = CanvasAPI::formatTimestamp(strtotime($Section->Term->StartDate));
+                        }
+                    } else {
+                        $endAt = null;
+                    }
 
                     if ($enrollStudent) {
                         if (!$pretend) {
                             try {
                                 $newEnrollment = static::createSectionEnrollment(
-                                    $Student,
+                                    $SectionParticipant->Person,
                                     $SectionMapping,
                                     $Job,
-                                    'student'
+                                    'student',
+                                    [
+                                        'start_at' => $startAt,
+                                        'end_at' => $endAt
+                                    ]
                                 );
                             } catch (SyncException $e) {
                                 $Job->logException($e);
@@ -1355,10 +1424,59 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                                 'Enrolling {enrollmentType} {slateUsername} into course section {sectionCode}',
                                 [
                                     'sectionCode' => $Section->Code,
-                                    'slateUsername' => $Student->Username,
+                                    'slateUsername' => $studentUsername,
                                     'enrollmentType' => 'student'
                                 ]
                             );
+                        }
+                    } else {
+                        $canvasEnrollment = $canvasEnrollments['students'][$studentUsername];
+                        $changes = [];
+
+                        if ($canvasEnrollment['start_at'] != $startAt) {
+                            $changes['start_at'] = [
+                                'from' => $canvasEnrollment['start_at'],
+                                'to' => $startAt
+                            ];
+                        }
+
+                        if ($canvasEnrollment['end_at'] != $endAt) {
+                            $changes['end_at'] = [
+                                'from' => $canvasEnrollment['end_at'],
+                                'to' => $endAt
+                            ];
+                        }
+
+                        if (!empty($changes)) {
+                            $Job->notice(
+                                'Updating enrollment for {enrollmentType} {slateUsername} in course section {sectionCode}',
+                                [
+                                    'action' => 'update',
+                                    'changes' => $changes,
+                                    'sectionCode' => $Section->Code,
+                                    'slateUsername' => $studentUsername,
+                                    'enrollmentType' => 'student'
+                                ]
+                            );
+
+                            if (!$pretend) {
+                                try {
+                                    $updatedEnrollment = static::createSectionEnrollment(
+                                        $SectionParticipant->Person,
+                                        $SectionMapping,
+                                        $Job,
+                                        'student',
+                                        [
+                                            'start_at' => $startAt,
+                                            'end_at' => $endAt
+                                        ]
+                                    );
+                                } catch (SyncException $e) {
+                                    $Job->logException($e);
+                                }
+                            }
+
+                            $results['updated']['sections']++;
                         }
                     }
 
@@ -1390,9 +1508,9 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                         //                             $Guardian,
                         //                             $CourseMapping,
                         //                             $SectionMapping,
+                        //                             'observer',
                         //                             [
-                        //                                 'type' => 'observer',
-                        //                                 'observeeId' => $studentCanvasId
+                        //                                 'associated_user_id' => $studentCanvasId
                         //                             ]
                         //                         )
                         //                     );
@@ -1433,8 +1551,14 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                 }
 
                 // remove students from canvas
-                foreach (array_diff(array_keys($canvasEnrollments['students']), $slateEnrollments['students']) as $studentUsername) {
+                $studentsToRemove = array_diff(
+                    array_keys($canvasEnrollments['students']),
+                    array_keys($slateEnrollments['students'])
+                );
+
+                foreach ($studentsToRemove as $studentUsername) {
                     $enrollmentId = $canvasEnrollments['students'][$studentUsername]['id'];
+
                     if ($Student = Student::getByUsername($studentUsername)) { // todo: handle accounts deleted in slate?
                         if (!$pretend) {
                             try {
@@ -1453,7 +1577,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                                 'Removing {enrollmentType} enrollment for {slateUsername} from course section {sectionCode}',
                                 [
                                     'sectionCode' => $Section->Code,
-                                    'slateUsername' => $Student->Username,
+                                    'slateUsername' => $studentUsername,
                                     'enrollmentType' => 'student'
                                 ]
                             );
@@ -1476,7 +1600,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
     * @param $settings array - Config array containing enrollment options
     * @return SyncResult object / SyncException object
     */
-    protected static function createSectionEnrollment(IPerson $User, Mapping $SectionMapping, LoggerInterface $logger, $enrollmentType, $observeeId = null)
+    protected static function createSectionEnrollment(IPerson $User, Mapping $SectionMapping, LoggerInterface $logger, $enrollmentType, array $enrollmentData = [])
     {
         switch ($enrollmentType) {
             case 'student':
@@ -1491,20 +1615,20 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
         $canvasUserId = static::_getCanvasUserID($User->ID);
 
         try {
-            $enrollmentData = [
+            $requestData = [
                 'enrollment[user_id]' => $canvasUserId,
                 'enrollment[type]' => ucfirst($enrollmentType).'Enrollment',
                 'enrollment[enrollment_state]' => 'active',
                 'enrollment[notify]' => 'false',
             ];
 
-            if ($enrollmentType == 'observer' && !empty($observeeId)) {
-                $enrollmentData['enrollment[associated_user_id]'] = $observeeId;
+            foreach ($enrollmentData as $enrollmentKey => $enrollmentValue) {
+                $requestData["enrollment[{$enrollmentKey}]"] = $enrollmentValue;
             }
 
             $canvasResponse = CanvasAPI::createEnrollmentsForSection(
                 $SectionMapping->ExternalIdentifier,
-                $enrollmentData
+                $requestData
             );
 
             $logger->notice(
