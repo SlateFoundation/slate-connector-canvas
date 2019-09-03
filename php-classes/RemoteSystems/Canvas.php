@@ -72,6 +72,14 @@ class Canvas
         return $response;
     }
 
+    /**
+     * Format a timestamp to a format that will string-match what Canvas returns
+     */
+    public static function formatTimestamp($timestamp)
+    {
+        return gmdate('Y-m-d\TH:i:s\Z', $timestamp);
+    }
+
 
     // Accounts: https://canvas.instructure.com/doc/api/accounts.html
     public static function getAccount($accountID = null)
