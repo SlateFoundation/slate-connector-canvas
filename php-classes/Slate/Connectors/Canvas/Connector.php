@@ -1020,6 +1020,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                                 'sectionCode' => $Section->Code
                             ]
                         );
+                        continue;
                     } else {
                         $courseMappingData['ExternalIdentifier'] = $canvasResponse['id'];
                         $CourseMapping = Mapping::create($courseMappingData, true);
@@ -1162,6 +1163,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                                 'canvasResponse' => $canvasResponse
                             ]
                         );
+                        continue;
                     } else {
                         $sectionMappingData['ExternalIdentifier'] = $canvasResponse['id'];
                         $SectionMapping = Mapping::create($sectionMappingData, true);
