@@ -207,7 +207,7 @@ class Canvas
     {
         $options = array_merge([
             'state' => ['active', 'invited', 'creation_pending', 'deleted', 'rejected', 'completed', 'inactive'],
-            'type' => ['StudentEnrollment', 'TeacherEnrollment', 'ObserverEnrollment'],
+            'type' => ['StudentEnrollment', 'TeacherEnrollment', 'ObserverEnrollment', 'TaEnrollment'],
             'per_page' => 1000
         ], $options);
 
