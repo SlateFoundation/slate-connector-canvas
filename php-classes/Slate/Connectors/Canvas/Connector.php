@@ -185,6 +185,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
         $config['syncObservers'] = !empty($requestData['syncObservers']);
         $config['removeTeachers'] = !empty($requestData['removeTeachers']);
         $config['includeEmptySections'] = !empty($requestData['includeEmptySections']);
+        $config['concludeEndedEnrollments'] = !empty($requestData['concludeEndedEnrollments']);
 
         return $config;
     }
@@ -891,6 +892,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
             return false;
         }
 
+        $now = strtotime('now');
         $sectionConditions = [
             'TermID' => [
                 'values' => $MasterTerm->getContainedTermIDs(),
@@ -1548,6 +1550,34 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                             }
 
                             $results['updated']['sections']++;
+                        }
+                    }
+
+                    if ($SectionParticipant->EndDate && !empty($Job->Config['concludeEndedEnrollments'])) {
+                        if ($SectionParticipant->EndDate < $now) {
+                            $Job->notice(
+                                'Concluding ended enrollment {enrollmentType} for {slateUsername} in course section {sectionCode}',
+                                [
+                                    'sectionCode' => $Section->Code,
+                                    'slateUsername' => $studentUsername,
+                                    'enrollmentType' => 'student'
+                                ]
+                            );
+
+                            if (!$pretend) {
+                                try {
+                                    $concludedEnrollment = static::removeSectionEnrollment(
+                                        $SectionParticipant->Person,
+                                        $SectionMapping,
+                                        $logger,
+                                        'student',
+                                        $canvasEnrollment['id'],
+                                        'conclude'
+                                    );
+                                } catch (SyncException $e) {
+                                    $Job->logException($e);
+                                }
+                            }
                         }
                     }
 

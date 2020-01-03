@@ -103,10 +103,17 @@
             </p>
             <p>
                 <label>
-                    ↳ Remove Teachers
-                    <input type="checkbox" name="removeTeachers" value="false" {refill field=pushUsers checked="true" default="false"}>
+                    &#x21B3; Conclude Enrollments past their end date
+                    <input type="checkbox" name="concludeEndedEnrollments" value="true" {refill field=concludeEndedEnrollments checked="true" default="false"}>
                 </label>
-                Check to unenroll teachers from Canvas courses if they're no longer enrolled in Slate
+                Check to conclude student enrollments that have a past end date.
+            </p>
+            <p>
+                <label>
+                    &#x21B3; Remove Teachers
+                    <input type="checkbox" name="removeTeachers" value="false" {refill field=removeTeachers checked="true" default="false"}>
+                </label>
+                Check to unenroll <strong>teachers</strong> from Canvas courses if they're no longer enrolled in Slate
             </p>
             {*
             <p>
