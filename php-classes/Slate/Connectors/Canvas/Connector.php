@@ -1569,7 +1569,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                                     $concludedEnrollment = static::removeSectionEnrollment(
                                         $SectionParticipant->Person,
                                         $SectionMapping,
-                                        $logger,
+                                        $Job,
                                         'student',
                                         $canvasEnrollment['id'],
                                         'conclude'
