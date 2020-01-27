@@ -1570,6 +1570,8 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                                     $Job->logException($e);
                                 }
                             }
+
+                            $results['concluded-ended']['enrollments']++;
                         }
                     }
 
