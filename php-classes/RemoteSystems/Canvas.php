@@ -53,23 +53,62 @@ class Canvas
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_HEADER, true);
 
-        $response = json_decode(curl_exec($ch), true);
-        $responseCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+
+        // fetch pages
+        $responseData = [];
+        do {
+            $response = curl_exec($ch);
+            $responseCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+
+            if ($responseCode >= 400 || $responseCode < 200) {
+                throw new \RuntimeException(
+                    (
+                        !empty($response['errors']) ?
+                        'Canvas reports: '.$response['errors'][0]['message']
+                        : 'unknown Canvas error'
+                    ),
+                    $responseCode
+                );
+            }
+
+            $responseHeadersSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+            $responseHeaders = substr($response, 0, $responseHeadersSize);
+            $responseData = array_merge($responseData, json_decode(substr($response, $responseHeadersSize), true));
+
+            if (
+                !empty($params['per_page'])
+                && preg_match('/^link:\s+(.+?)\r\n/mi', $responseHeaders, $responseHeaderMatches)
+                && !empty($responseHeaderMatches[1])
+            ) {
+                $responseHeaderLinks = preg_split('/\s*,\s*/', $responseHeaderMatches[1]);
+
+                foreach ($responseHeaderLinks as $linkLine) {
+                    $linkSegments = preg_split('/\s*;\s*/', $linkLine);
+                    $linkUrl = substr(array_shift($linkSegments), 1, -1);
+
+                    foreach ($linkSegments as $linkSegment) {
+                        if (preg_match('/rel=([\'"]?)next\1/i', $linkSegment)) {
+                            curl_setopt($ch, CURLOPT_URL, $linkUrl);
+                            // continue to top-most do-loop to load new URL
+                            continue 3;
+                        }
+                    }
+                }
+
+                // no link header or next link found
+                break;
+            } else {
+                // no paging, finish after first request
+                break;
+            }
+
+        } while (true);
+
         curl_close($ch);
 
-        if ($responseCode >= 400 || $responseCode < 200) {
-            throw new \RuntimeException(
-                (
-                    !empty($response['errors']) ?
-                    'Canvas reports: '.$response['errors'][0]['message']
-                    : 'unknown Canvas error'
-                ),
-                $responseCode
-            );
-        }
-
-        return $response;
+        return $responseData;
     }
 
     /**
