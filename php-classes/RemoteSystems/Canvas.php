@@ -18,42 +18,45 @@ class Canvas
     }
 
 
-    public static function executeRequest($path, $requestMethod = 'GET', $params = [], $headers = [])
+    public static function executeRequest($path, $requestMethod = 'GET', $params = [])
     {
         $url = 'https://'.static::$canvasHost.'/api/v1/'.$path;
 
+
         // confugre cURL
-        $ch = curl_init();
+        static $ch;
+
+        if (!$ch) {
+            $ch = curl_init();
+
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                sprintf('Authorization: Bearer %s', static::$apiToken)
+            ]);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_HEADER, true);
+        }
+
+
+        // (re)configure cURL for this request
+        curl_setopt($ch, CURLOPT_POST, $requestMethod == 'POST');
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $requestMethod);
 
         if ($requestMethod == 'GET') {
-            $url .= '?'.(is_string($params) ? $params : preg_replace('/(%5B)\d+(%5D=)/i', '$1$2', http_build_query($params))); // strip numeric indexes in array keys
-        } else {
-            if ($requestMethod == 'POST') {
-                curl_setopt($ch, CURLOPT_POST, true);
-            } else {
-                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $requestMethod);
-            }
+            curl_setopt($ch, CURLOPT_HTTPGET, true);
 
+            // strip numeric indexes in array keys
+            $url .= '?'.(is_string($params) ? $params : preg_replace('/(%5B)\d+(%5D=)/i', '$1$2', http_build_query($params)));
+        } else {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
         }
 
-        if (!empty($headers)) {
-            $requestHeaders = array_merge($requestHeaders, $headers);
-        }
+        curl_setopt($ch, CURLOPT_URL, $url);
 
         if (static::$logger) {
             static::$logger->debug("$requestMethod $url");
         }
-
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array_merge([
-            sprintf('Authorization: Bearer %s', static::$apiToken)
-        ], $headers));
-
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_HEADER, true);
 
 
         // fetch pages
@@ -106,7 +109,6 @@ class Canvas
 
         } while (true);
 
-        curl_close($ch);
 
         return $responseData;
     }
