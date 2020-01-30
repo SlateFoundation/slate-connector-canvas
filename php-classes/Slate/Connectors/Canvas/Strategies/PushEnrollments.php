@@ -1,0 +1,233 @@
+<?php
+
+namespace Slate\Connectors\Canvas\Strategies;
+
+use BadMethodCallException;
+use Emergence\People\User;
+use OutOfBoundsException;
+use Slate\Connectors\Canvas\API;
+use Slate\Connectors\Canvas\Commands\ActivateEnrollment;
+use Slate\Connectors\Canvas\Commands\InactivateEnrollment;
+use Slate\Connectors\Canvas\Commands\UpdateEnrollment;
+use Slate\Connectors\Canvas\Repositories\Enrollments as EnrollmentsRepository;
+use Slate\Connectors\Canvas\Repositories\Users as UsersRepository;
+use Slate\Courses\Section;
+use Slate\Courses\SectionParticipant;
+
+class PushEnrollments
+{
+    protected static $toCanvasRole = [
+        'Student' => 'StudentEnrollment',
+        'Teacher' => 'TeacherEnrollment',
+        'Observer' => 'ObserverEnrollment',
+        'Assistant' => 'TaEnrollment',
+    ];
+
+    protected static $toSlateRole = [
+        'StudentEnrollment' => 'Student',
+        'TeacherEnrollment' => 'Teacher',
+        'ObserverEnrollment' => 'Observer',
+        'TaEnrollment' => 'Assistant',
+    ];
+    private $usersRepository;
+    private $enrollmentsRepository;
+    private $sis_section_id;
+    private $sis_user_id;
+    private $inactivateEnded;
+
+    public function __construct(UsersRepository $usersRepository, EnrollmentsRepository $enrollmentsRepository, array $options = [])
+    {
+        $this->usersRepository = $usersRepository;
+        $this->enrollmentsRepository = $enrollmentsRepository;
+
+        if (!empty($options['sis_section_id'])) {
+            $this->sis_section_id = $options['sis_section_id'];
+        }
+
+        if (!empty($options['sis_user_id'])) {
+            $this->sis_user_id = $options['sis_user_id'];
+        }
+
+        $this->inactivateEnded = !empty($options['inactivate_ended']);
+
+        if (!$this->sis_section_id && !$this->sis_user_id) {
+            throw new BadMethodCallException('sis_section_id and sis_user_id cannot both be omitted');
+        }
+    }
+
+    /**
+     * Analyze current state and yield list of operations.
+     *
+     * - Slate keys enrollments on section+person
+     * - Canvas keys enrollments on section+person+role, so it can have many records for the same section+person
+     */
+    public function plan()
+    {
+        if (
+            $this->sis_section_id
+            && !($Section = Section::getByCode($this->sis_section_id))
+        ) {
+            throw new OutOfBoundsException("section '{$this->sis_section_id}' not found");
+        }
+
+        if (
+            $this->sis_user_id
+            && !($Person = User::getByUsername($this->sis_user_id))
+        ) {
+            throw new OutOfBoundsException("user '{$this->sis_user_id}' not found");
+        }
+
+        // build scope and query Slate records
+        $slateConditions = [];
+
+        if ($Section) {
+            $slateConditions['CourseSectionID'] = $Section->ID;
+        }
+
+        if ($Person) {
+            $slateConditions['PersonID'] = $Person->ID;
+        }
+
+        $slateResult = SectionParticipant::getAllByWhere($slateConditions, ['order' => 'ID']);
+
+        // build scope and query Canvas records
+        if ($Section) {
+            $query = [];
+
+            if ($Person) {
+                $query['user_id'] = "sis_user_id:{$Person->Username}";
+            }
+
+            $canvasResult = $this->enrollmentsRepository->getBySection("sis_section_id:{$Section->Code}", $query);
+        } elseif ($Person) {
+            $canvasResult = $this->enrollmentsRepository->getByUser("sis_user_id:{$Person->Username}");
+        }
+
+        // index Slate enrollments
+        $slateEnrollments = [];
+        foreach ($slateResult as $slateEnrollment) {
+            $key = implode('/', [
+                $slateEnrollment->Person->Username,
+                $slateEnrollment->Section->Code,
+                static::$toCanvasRole[$slateEnrollment->Role],
+            ]);
+
+            $slateEnrollments[$key] = $slateEnrollment;
+        }
+
+        // index Canvas enrollments
+        $canvasEnrollments = [];
+        foreach ($canvasResult as $canvasEnrollment) {
+            $key = implode('/', [
+                $canvasEnrollment['sis_user_id'],
+                $canvasEnrollment['sis_section_id'],
+                $canvasEnrollment['role'],
+            ]);
+
+            $canvasEnrollments[$key] = $canvasEnrollment;
+        }
+
+        // plan operations
+        $now = time();
+
+        // plan operations -- enrollments to inactivate
+        $inactivateQueue = array_diff_key($canvasEnrollments, $slateEnrollments);
+        foreach ($inactivateQueue as $canvasEnrollment) {
+            // leave extra observer enrollments alone
+            if ('ObserverEnrollment' == $canvasEnrollment['role']) {
+                // only skip observers who are observing a current student
+                if (
+                    !empty($canvasEnrollment['associated_user_id'])
+                    && ($associatedUser = $this->usersRepository->getById($canvasEnrollment['associated_user_id']))
+                    && ($associatedEnrollmentKey = "{$associatedUser['sis_user_id']}/{$canvasEnrollment['sis_section_id']}/StudentEnrollment")
+                    && isset($slateEnrollments[$associatedEnrollmentKey])
+                    && ($associatedEnrollment = $slateEnrollments[$associatedEnrollmentKey])
+                    && (!$associatedEnrollment->StartDate || $associatedEnrollment->getEffectiveStartTimestamp() < $now)
+                    && (!$associatedEnrollment->EndDate || $associatedEnrollment->getEffectiveEndTimestamp() > $now)
+                ) {
+                    continue;
+                }
+            }
+
+            yield new InactivateEnrollment(
+                "sis_user_id:{$canvasEnrollment['sis_user_id']}",
+                "sis_section_id:{$canvasEnrollment['sis_section_id']}",
+                $canvasEnrollment['role']
+            );
+        }
+
+        // plan operations -- enrollments to activate
+        $createQueue = array_diff_key($slateEnrollments, $canvasEnrollments);
+        foreach ($createQueue as $slateEnrollment) {
+            // skip if past end date
+            if (
+                $slateEnrollment->EndDate
+                && $slateEnrollment->getEffectiveEndTimestamp() < $now
+            ) {
+                continue;
+            }
+
+            yield new ActivateEnrollment(
+                "sis_user_id:{$slateEnrollment->Person->Username}",
+                "sis_section_id:{$slateEnrollment->Section->Code}",
+                $slateEnrollment->Role,
+                $this->buildCanvasValues($slateEnrollment)
+            );
+        }
+
+        // plan operations -- enrollments to update
+        $compareQueue = array_intersect_key($slateEnrollments, $canvasEnrollments);
+        foreach ($compareQueue as $key => $slateEnrollment) {
+            $canvasEnrollment = $canvasEnrollments[$key];
+
+            // inactivate if end date has past
+            if (
+                $this->inactivateEnded
+                && $slateEnrollment->EndDate
+                && $slateEnrollment->getEffectiveEndTimestamp() < $now
+            ) {
+                yield new InactivateEnrollment(
+                    "sis_user_id:{$canvasEnrollment['sis_user_id']}",
+                    "sis_section_id:{$canvasEnrollment['sis_section_id']}",
+                    $canvasEnrollment['role']
+                );
+
+                continue;
+            }
+
+            // skip if everything matches
+            $newCanvasValues = $this->buildCanvasValues($slateEnrollment);
+
+            if (
+                $canvasEnrollment['start_at'] == $newCanvasValues['start_at']
+                && $canvasEnrollment['end_at'] == $newCanvasValues['end_at']
+            ) {
+                continue;
+            }
+
+            yield new UpdateEnrollment(
+                "sis_user_id:{$slateEnrollment->Person->Username}",
+                "sis_section_id:{$slateEnrollment->Section->Code}",
+                $newCanvasValues,
+                array_intersect_key($canvasEnrollment, $newCanvasValues)
+            );
+        }
+    }
+
+    private function buildCanvasValues(SectionParticipant $slateEnrollment)
+    {
+        $endAt = $slateEnrollment->EndDate
+        ? $slateEnrollment->getEffectiveEndTimestamp()
+        : null;
+
+        // end_at will be ignored if start_at isn't set too"
+        $startAt = $endAt || $slateEnrollment->StartDate
+            ? $slateEnrollment->getEffectiveStartTimestamp()
+            : null;
+
+        return [
+            'start_at' => API::formatTimestamp($startAt),
+            'end_at' => API::formatTimestamp($endAt),
+        ];
+    }
+}
