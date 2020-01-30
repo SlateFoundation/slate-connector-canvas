@@ -118,7 +118,7 @@ class Canvas
      */
     public static function formatTimestamp($timestamp)
     {
-        return gmdate('Y-m-d\TH:i:s\Z', $timestamp);
+        return $timestamp ? gmdate('Y-m-d\TH:i:s\Z', $timestamp) : null;
     }
 
 
