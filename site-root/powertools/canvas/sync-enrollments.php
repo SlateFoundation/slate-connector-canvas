@@ -6,6 +6,14 @@ use Slate\Connectors\Canvas\Repositories\Users as UsersRepository;
 use Slate\Connectors\Canvas\Strategies\PushEnrollments;
 use Slate\Courses\SectionsRequestHandler;
 
+// dump shim
+if (!function_exists('dump')) {
+    function dump()
+    {
+        // do nothing
+    }
+}
+
 // configure request/response
 $GLOBALS['Session']->requireAccountLevel('Administrator');
 set_time_limit(0);
