@@ -149,11 +149,7 @@ class PushEnrollments
                 }
             }
 
-            yield new InactivateEnrollment(
-                "sis_user_id:{$canvasEnrollment['sis_user_id']}",
-                "sis_section_id:{$canvasEnrollment['sis_section_id']}",
-                $canvasEnrollment['role']
-            );
+            yield new InactivateEnrollment($canvasEnrollment);
         }
 
         // plan operations -- enrollments to activate
@@ -186,11 +182,7 @@ class PushEnrollments
                 && $slateEnrollment->EndDate
                 && $slateEnrollment->getEffectiveEndTimestamp() < $now
             ) {
-                yield new InactivateEnrollment(
-                    "sis_user_id:{$canvasEnrollment['sis_user_id']}",
-                    "sis_section_id:{$canvasEnrollment['sis_section_id']}",
-                    $canvasEnrollment['role']
-                );
+                yield new InactivateEnrollment($canvasEnrollment);
 
                 continue;
             }

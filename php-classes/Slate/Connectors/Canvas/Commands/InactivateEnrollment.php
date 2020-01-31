@@ -6,15 +6,11 @@ use Emergence\Connectors\ICommand;
 
 class InactivateEnrollment implements ICommand
 {
-    private $userId;
-    private $sectionId;
-    private $role;
+    private $enrollment;
 
-    public function __construct($userId, $sectionId, $role)
+    public function __construct(array $enrollment)
     {
-        $this->userId = $userId;
-        $this->sectionId = $sectionId;
-        $this->role = $role;
+        $this->enrollment = $enrollment;
     }
 
     public function describe()
@@ -22,9 +18,9 @@ class InactivateEnrollment implements ICommand
         return [
             'INACTIVATE {role} {userId} IN {sectionId}',
             [
-                'userId' => $this->userId,
-                'sectionId' => $this->sectionId,
-                'role' => $this->role,
+                'userId' => "sis_user_id:{$this->enrollment['sis_user_id']}",
+                'sectionId' => "sis_section_id:{$this->enrollment['sis_section_id']}",
+                'role' => $this->enrollment['role'],
             ],
         ];
     }
