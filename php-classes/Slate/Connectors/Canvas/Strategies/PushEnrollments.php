@@ -7,6 +7,7 @@ use Emergence\People\User;
 use OutOfBoundsException;
 use Slate\Connectors\Canvas\API;
 use Slate\Connectors\Canvas\Commands\ActivateEnrollment;
+use Slate\Connectors\Canvas\Commands\ConcludeEnrollment;
 use Slate\Connectors\Canvas\Commands\InactivateEnrollment;
 use Slate\Connectors\Canvas\Commands\UpdateEnrollment;
 use Slate\Connectors\Canvas\Repositories\Enrollments as EnrollmentsRepository;
@@ -130,7 +131,7 @@ class PushEnrollments
         // plan operations
         $now = time();
 
-        // plan operations -- enrollments to inactivate
+        // plan operations -- enrollments to conclude/inactivate
         $inactivateQueue = array_diff_key($canvasEnrollments, $slateEnrollments);
         foreach ($inactivateQueue as $canvasEnrollment) {
             // leave extra observer enrollments alone
@@ -149,7 +150,7 @@ class PushEnrollments
                 }
             }
 
-            yield new InactivateEnrollment($canvasEnrollment);
+            yield new ConcludeEnrollment($canvasEnrollment);
         }
 
         // plan operations -- enrollments to activate
