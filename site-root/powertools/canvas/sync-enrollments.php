@@ -35,7 +35,7 @@ class _PowertoolLogger extends Psr\Log\AbstractLogger
     public function log($level, $message, array $context = [])
     {
         $this->entries[] = compact('level', 'message', 'context');
-        dump([$level => Emergence\Logger::interpolate($message, $context)]);
+        // dump([$level => Emergence\Logger::interpolate($message, $context)]);
     }
 }
 $logger = new _PowertoolLogger();
@@ -48,10 +48,29 @@ $enrollmentsRepository->setUsersRepository($usersRepository);
 ?>
 
 <style>
-    .status- {
-        background-color: rgba(200, 200, 0, 0.5);
+    .sync-log article {
+        margin-bottom: 1em;
     }
+    .sync-log dl {
+        margin-left: 2em;
+        margin-top: 0;
+    }
+    .sync-log code {
+        font-weight: bold;
+    }
+
+    .sync-log .level-emergency  { color: darkred; font-weight: bold; }
+    .sync-log .level-alert      { color: darkred; font-weight: bold; }
+    .sync-log .level-critical   { color: red; font-weight: bold; }
+    .sync-log .level-error      { color: orangered; font-weight: bold; }
+    .sync-log .level-warning    { color: orangered; }
+    .sync-log .level-notice     { color: orange; }
+    .sync-log .level-info       { color: skyblue; }
+    .sync-log .level-debug      { color: lightgray; display: none; }
 </style>
+
+
+<h2>Strategy</h2>
 
 <form method="GET">
     <fieldset>
@@ -78,7 +97,6 @@ $enrollmentsRepository->setUsersRepository($usersRepository);
     </fieldset>
 </form>
 
-
 <?php
 // create push strategy
 try {
@@ -96,39 +114,64 @@ try {
 }
 ?>
 
-
-<?php if ($strategy): ?>
-
-    <h2>Strategy</h2>
+<?php if ($strategy) : ?>
     <?php dump($strategy) ?>
 
 
     <h2>Plan</h2>
-    <?php ob_flush(); flush(); ?>
-    <?php foreach ($strategy->plan() as $command): ?>
+    <?php
+    ob_flush();
+    flush();
+    $commands = [];
+    ?>
+
+    <section class="sync-log">
+    <?php foreach ($strategy->plan() as $command) : ?>
         <?php
-            dump($command);
-            list($message, $context) = $command->describe();
+        // dump($command);
+        list($message, $context) = $command->describe();
+        $logText = Emergence\Logger::interpolate($message, $context);
+        $logHtml = htmlspecialchars($logText);
+        $logHtml = preg_replace('/(sis_[a-z]+_id:)(\S+)/', '$1<code>$2</code>', $logHtml);
+        ?>
+
+        <article class="level-notice">
+            <div><?=$logHtml?></div>
+
+            <?php
+            // store for later debugging
+            $commands[] = $command;
+
+            // add to log
             $logger->log('info', $message, $context);
+
+            // flush output
             ob_flush();
             flush();
-        ?>
+            ?>
+        </article>
     <?php endforeach ?>
+
+    <?php dump(compact('commands')) ?>
 
 
     <h2>Execution</h2>
     <form method="POST">
         <input type="submit" name="execute" value="Execute plan">
     </form>
-    <?php if (!empty($_POST['execute'])): ?>
+    <?php if (!empty($_POST['execute'])) : ?>
+        <script>
+            window.scrollTo(0,document.body.scrollHeight);
+        </script>
+        <!--
+        <h2>Repositories</h2>
+        <?php /* dump(compact('usersRepository', 'enrollmentsRepository')) */ ?>
+        -->
+
+        <!--
+        <h2>Log</h2>
+        <?php /* dump($logger->entries) */ ?>
+        -->
     <?php endif ?>
-
-
-    <h2>Repositories</h2>
-    <?php dump(compact('usersRepository', 'enrollmentsRepository')) ?>
-
-
-    <h2>Log</h2>
-    <?php dump($logger->entries) ?>
 
 <?php endif ?>
