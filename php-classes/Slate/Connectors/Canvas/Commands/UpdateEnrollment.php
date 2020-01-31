@@ -9,13 +9,15 @@ class UpdateEnrollment implements ICommand
 {
     private $userId;
     private $sectionId;
+    private $role;
     private $newValues;
     private $oldValues;
 
-    public function __construct($userId, $sectionId, array $newValues, array $oldValues = null)
+    public function __construct($userId, $sectionId, $role, array $newValues, array $oldValues = null)
     {
         $this->userId = $userId;
         $this->sectionId = $sectionId;
+        $this->role = $role;
         $this->newValues = $newValues;
         $this->oldValues = $oldValues;
     }
@@ -23,10 +25,11 @@ class UpdateEnrollment implements ICommand
     public function describe()
     {
         return [
-            'SYNC {userId} IN {sectionId} CHANGING {changes}',
+            'UPDATE {role} {userId} IN {sectionId} CHANGING {changes}',
             [
                 'userId' => $this->userId,
                 'sectionId' => $this->sectionId,
+                'role' => $this->role,
                 'changes' => new KeyedDiff($this->newValues, $this->oldValues),
             ],
         ];

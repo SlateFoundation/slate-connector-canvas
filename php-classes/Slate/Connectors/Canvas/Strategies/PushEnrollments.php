@@ -208,6 +208,7 @@ class PushEnrollments
             yield new UpdateEnrollment(
                 "sis_user_id:{$slateEnrollment->Person->Username}",
                 "sis_section_id:{$slateEnrollment->Section->Code}",
+                $canvasEnrollment['role'],
                 $newCanvasValues,
                 array_intersect_key($canvasEnrollment, $newCanvasValues)
             );
