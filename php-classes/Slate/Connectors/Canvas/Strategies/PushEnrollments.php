@@ -170,7 +170,7 @@ class PushEnrollments
             yield new ActivateEnrollment(
                 "sis_user_id:{$slateEnrollment->Person->Username}",
                 "sis_section_id:{$slateEnrollment->Section->Code}",
-                $slateEnrollment->Role,
+                static::$toCanvasRole[$slateEnrollment->Role],
                 $this->buildCanvasValues($slateEnrollment)
             );
         }
