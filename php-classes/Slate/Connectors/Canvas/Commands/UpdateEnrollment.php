@@ -2,6 +2,7 @@
 
 namespace Slate\Connectors\Canvas\Commands;
 
+use Emergence\Connectors\ICommand;
 use Emergence\KeyedDiff;
 
 class UpdateEnrollment implements ICommand
@@ -31,8 +32,8 @@ class UpdateEnrollment implements ICommand
         ];
     }
 
-    public function execute()
+    public function buildRequest()
     {
-        dump(['execute' => $this]);
+        dump(['buildRequest' => $this]);
     }
 }

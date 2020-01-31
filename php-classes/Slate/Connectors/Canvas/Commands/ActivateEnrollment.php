@@ -2,6 +2,8 @@
 
 namespace Slate\Connectors\Canvas\Commands;
 
+use Emergence\Connectors\ICommand;
+
 class ActivateEnrollment implements ICommand
 {
     private $userId;
@@ -20,19 +22,18 @@ class ActivateEnrollment implements ICommand
     public function describe()
     {
         return [
-            'ACTIVATE {role} {userId} IN {sectionId} WITH {values} TRUE = {true} AND FALSE = {false} AND NULL = {null]',
+            'ACTIVATE {role} {userId} IN {sectionId} WITH {values}',
             [
                 'role' => $this->role,
                 'userId' => $this->userId,
                 'sectionId' => $this->sectionId,
                 'values' => $this->values,
-                'true' => true, 'false' => false, 'null' => null,
             ],
         ];
     }
 
-    public function execute()
+    public function buildRequest()
     {
-        dump(['execute' => $this]);
+        dump(['buildRequest' => $this]);
     }
 }

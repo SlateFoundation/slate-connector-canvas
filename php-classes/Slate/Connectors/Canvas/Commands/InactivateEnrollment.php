@@ -2,6 +2,8 @@
 
 namespace Slate\Connectors\Canvas\Commands;
 
+use Emergence\Connectors\ICommand;
+
 class InactivateEnrollment implements ICommand
 {
     private $userId;
@@ -27,8 +29,8 @@ class InactivateEnrollment implements ICommand
         ];
     }
 
-    public function execute()
+    public function buildRequest()
     {
-        dump(['execute' => $this]);
+        dump(['buildRequest' => $this]);
     }
 }
