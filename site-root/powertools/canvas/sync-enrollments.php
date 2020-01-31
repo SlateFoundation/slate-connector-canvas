@@ -17,6 +17,7 @@ if (!function_exists('dump')) {
 // configure request/response
 $GLOBALS['Session']->requireAccountLevel('Administrator');
 set_time_limit(0);
+header('Content-Type: text/html; charset=utf-8');
 header('X-Accel-Buffering: no');
 ob_end_flush();
 
