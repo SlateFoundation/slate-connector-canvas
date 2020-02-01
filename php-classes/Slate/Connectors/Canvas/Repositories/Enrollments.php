@@ -10,15 +10,6 @@ use Slate\Connectors\Canvas\API;
  */
 class Enrollments
 {
-    public static $activeStates = [
-        'active',
-        'invited',
-        'creation_pending',
-        'deleted',
-        'rejected',
-        'completed',
-    ];
-
     public static $validStates = [
         'active',
         'invited',
@@ -60,7 +51,7 @@ class Enrollments
             'GET',
             "sections/{$sectionId}/enrollments",
             array_merge([
-                'state' => static::$activeStates,
+                'state' => static::$validStates,
                 'type' => static::$validTypes,
                 'per_page' => 1000,
             ], $params)
@@ -82,7 +73,7 @@ class Enrollments
             'GET',
             "users/{$userId}/enrollments",
             array_merge([
-                'state' => static::$activeStates,
+                'state' => static::$validStates,
                 'type' => static::$validTypes,
                 'per_page' => 1000,
             ], $params)
