@@ -11,7 +11,7 @@ class Canvas
     public static $accountID;
 
 
-    private static $logger;
+    protected static $logger;
     public static function setLogger(\Psr\Log\LoggerInterface $logger)
     {
         static::$logger = $logger;
@@ -55,7 +55,7 @@ class Canvas
         curl_setopt($ch, CURLOPT_URL, $url);
 
         if (static::$logger) {
-            static::$logger->debug("$requestMethod $url");
+            static::$logger->debug("$requestMethod\t" . str_replace('?', "\t?", $url));
         }
 
 
