@@ -150,6 +150,11 @@ class PushEnrollments
                 }
             }
 
+            // skip if enrollment is already concluded
+            if ($canvasEnrollment['enrollment_state'] == 'completed') {
+                continue;
+            }
+
             yield new ConcludeEnrollment($canvasEnrollment);
         }
 
@@ -183,7 +188,10 @@ class PushEnrollments
                 && $slateEnrollment->EndDate
                 && $slateEnrollment->getEffectiveEndTimestamp() < $now
             ) {
-                yield new InactivateEnrollment($canvasEnrollment);
+                // skip if already inactive
+                if ($canvasEnrollment['enrollment_state'] != 'inactive') {
+                    yield new InactivateEnrollment($canvasEnrollment);
+                }
 
                 continue;
             }
