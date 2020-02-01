@@ -3,7 +3,7 @@
 namespace Slate\Connectors\Canvas\Repositories;
 
 use Psr\Log\LoggerInterface;
-use RemoteSystems\Canvas;
+use Slate\Connectors\Canvas\API;
 
 /**
  * API Reference: https://canvas.instructure.com/doc/api/enrollments.html.
@@ -56,13 +56,15 @@ class Enrollments
 
     public function getBySection($sectionId, array $params = [])
     {
-        $params = array_merge([
-            'state' => static::$activeStates,
-            'type' => static::$validTypes,
-            'per_page' => 1000,
-        ], $params);
-
-        $enrollments = Canvas::executeRequest("sections/{$sectionId}/enrollments", 'GET', $params);
+        $enrollments = API::buildAndExecuteRequest(
+            'GET',
+            "sections/{$sectionId}/enrollments",
+            array_merge([
+                'state' => static::$activeStates,
+                'type' => static::$validTypes,
+                'per_page' => 1000,
+            ], $params)
+        );
 
         // load all embeded users into repository cache
         if ($this->usersRepository) {
@@ -76,13 +78,15 @@ class Enrollments
 
     public function getByUser($userId, array $params = [])
     {
-        $params = array_merge([
-            'state' => static::$activeStates,
-            'type' => static::$validTypes,
-            'per_page' => 1000,
-        ], $params);
-
-        $enrollments = Canvas::executeRequest("users/{$userId}/enrollments", 'GET', $params);
+        $enrollments = API::buildAndExecuteRequest(
+            'GET',
+            "users/{$userId}/enrollments",
+            array_merge([
+                'state' => static::$activeStates,
+                'type' => static::$validTypes,
+                'per_page' => 1000,
+            ], $params)
+        );
 
         // load all embeded users into repository cache
         if ($this->usersRepository) {
