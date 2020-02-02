@@ -65,20 +65,20 @@ class Canvas
             $response = curl_exec($ch);
             $responseCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
 
+            $responseHeadersSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+            $responseHeaders = substr($response, 0, $responseHeadersSize);
+            $responseData = array_merge($responseData, json_decode(substr($response, $responseHeadersSize), true));
+
             if ($responseCode >= 400 || $responseCode < 200) {
                 throw new \RuntimeException(
                     (
-                        !empty($response['errors']) ?
-                        'Canvas reports: '.$response['errors'][0]['message']
-                        : 'unknown Canvas error'
+                        !empty($responseData['errors'])
+                        ? "Canvas reports: {$responseData['errors'][0]['message']}"
+                        : "Canvas request failed with code {$responseCode}"
                     ),
                     $responseCode
                 );
             }
-
-            $responseHeadersSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-            $responseHeaders = substr($response, 0, $responseHeadersSize);
-            $responseData = array_merge($responseData, json_decode(substr($response, $responseHeadersSize), true));
 
             if (
                 !empty($params['per_page'])
