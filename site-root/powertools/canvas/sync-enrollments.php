@@ -125,7 +125,7 @@ try {
 ?>
 
 <?php if ($strategy) : ?>
-    <?php dump($strategy) ?>
+    <?php dump($strategy); ?>
 
 
     <h2>Plan</h2>
@@ -146,7 +146,7 @@ try {
         ?>
 
         <article class="level-notice">
-            <div><?=$logHtml?></div>
+            <div><?=$logHtml; ?></div>
 
             <?php
             // store for later debugging
@@ -160,9 +160,9 @@ try {
             flush();
             ?>
         </article>
-    <?php endforeach ?>
+    <?php endforeach; ?>
 
-    <?php dump(compact('commands')) ?>
+    <?php dump(compact('commands')); ?>
 
 
     <h2>Execution</h2>
@@ -190,7 +190,7 @@ try {
                     'response' => $response,
                 ]);
             ?>
-        <?php endforeach ?>
+        <?php endforeach; ?>
         <!--
         <h2>Repositories</h2>
         <?php /* dump(compact('usersRepository', 'enrollmentsRepository')) */ ?>
@@ -200,6 +200,6 @@ try {
         <h2>Log</h2>
         <?php /* dump($logger->entries) */ ?>
         -->
-    <?php endif ?>
+    <?php endif; ?>
 
-<?php endif ?>
+<?php endif; ?>

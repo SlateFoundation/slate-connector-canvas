@@ -151,7 +151,7 @@ class PushEnrollments
             }
 
             // skip if enrollment is already concluded
-            if ($canvasEnrollment['enrollment_state'] == 'completed') {
+            if ('completed' == $canvasEnrollment['enrollment_state']) {
                 continue;
             }
 
@@ -189,7 +189,7 @@ class PushEnrollments
                 && $slateEnrollment->getEffectiveEndTimestamp() < $now
             ) {
                 // skip if already inactive
-                if ($canvasEnrollment['enrollment_state'] != 'inactive') {
+                if ('inactive' != $canvasEnrollment['enrollment_state']) {
                     yield new InactivateEnrollment($canvasEnrollment);
                 }
 

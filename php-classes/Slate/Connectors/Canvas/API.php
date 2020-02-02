@@ -12,12 +12,10 @@ class API extends \RemoteSystems\Canvas
     public static function buildAndExecuteRequest($method, $path, array $params = null)
     {
         $request = static::buildRequest($method, $path, $params);
+
         return static::execute($request);
     }
 
-    /**
-     *
-     */
     public static function buildRequest($method, $path, array $params = null)
     {
         // build method
@@ -26,8 +24,8 @@ class API extends \RemoteSystems\Canvas
         // build url
         $url = sprintf('https://%s/api/v1/%s', static::$canvasHost, $path);
 
-        if ($method == 'get' && !empty($params)) {
-            $url .= '?' . preg_replace('/(%5B)\d+(%5D=)/i', '$1$2', http_build_query($params));
+        if ('get' == $method && !empty($params)) {
+            $url .= '?'.preg_replace('/(%5B)\d+(%5D=)/i', '$1$2', http_build_query($params));
         }
 
         // build headers
@@ -36,7 +34,7 @@ class API extends \RemoteSystems\Canvas
         // build body
         $body = null;
 
-        if ($method != 'get' && !empty($params)) {
+        if ('get' != $method && !empty($params)) {
             $headers['Content-Type'] = 'application/x-www-form-urlencoded';
             $body = http_build_query($params);
         }
@@ -54,7 +52,7 @@ class API extends \RemoteSystems\Canvas
             $ch = curl_init();
 
             curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                sprintf('Authorization: Bearer %s', static::$apiToken)
+                sprintf('Authorization: Bearer %s', static::$apiToken),
             ]);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
@@ -62,41 +60,36 @@ class API extends \RemoteSystems\Canvas
             curl_setopt($ch, CURLOPT_HEADER, true);
         }
 
-
         // add auth header
         $Request = $Request->withAddedHeader(
             'Authorization',
             sprintf('Bearer %s', static::$apiToken)
         );
 
-
         // (re)configure cURL for this request
-        curl_setopt($ch, CURLOPT_POST, strtolower($Request->getMethod()) == 'post');
+        curl_setopt($ch, CURLOPT_POST, 'post' == strtolower($Request->getMethod()));
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $Request->getMethod());
 
-        if (strtolower($Request->getMethod()) == 'get') {
+        if ('get' == strtolower($Request->getMethod())) {
             curl_setopt($ch, CURLOPT_HTTPGET, true);
         } else {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, (string)$Request->getBody());
+            curl_setopt($ch, CURLOPT_POSTFIELDS, (string) $Request->getBody());
         }
 
-        curl_setopt($ch, CURLOPT_URL, (string)$Request->getUri());
-
+        curl_setopt($ch, CURLOPT_URL, (string) $Request->getUri());
 
         $headers = [];
         foreach ($Request->getHeaders() as $name => $values) {
             $headers[] = is_array($values)
                 ? sprintf('%s: %s', $name, join(', ', $values))
-                : $headers[] = sprintf('%s: %s', $name, (string)$values);
+                : $headers[] = sprintf('%s: %s', $name, (string) $values);
         }
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-
 
         // log request
         if (static::$logger) {
             static::$logger->debug("{$Request->getMethod()}\t{$Request->getUri()->getPath()}\t?{$Request->getUri()->getQuery()}");
         }
-
 
         // fetch pages
         $responseData = [];
@@ -109,14 +102,7 @@ class API extends \RemoteSystems\Canvas
             $responseData = array_merge($responseData, json_decode(substr($response, $responseHeadersSize), true));
 
             if ($responseCode >= 400 || $responseCode < 200) {
-                throw new \RuntimeException(
-                    (
-                        !empty($responseData['errors'])
-                        ? "Canvas reports: {$responseData['errors'][0]['message']}"
-                        : "Canvas request failed with code {$responseCode}"
-                    ),
-                    $responseCode
-                );
+                throw new \RuntimeException(!empty($responseData['errors']) ? "Canvas reports: {$responseData['errors'][0]['message']}" : "Canvas request failed with code {$responseCode}", $responseCode);
             }
 
             if (
@@ -144,9 +130,7 @@ class API extends \RemoteSystems\Canvas
                 // no paging, finish after first request
                 break;
             }
-
         } while (true);
-
 
         return $responseData;
     }
