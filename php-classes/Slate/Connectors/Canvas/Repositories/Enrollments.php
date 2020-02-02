@@ -51,7 +51,7 @@ class Enrollments
             'GET',
             "sections/{$sectionId}/enrollments",
             array_merge([
-                'state' => static::$validStates,
+                'state' => array_diff(static::$validStates, ['deleted']),
                 'type' => static::$validTypes,
                 'per_page' => 1000,
             ], $params)
@@ -73,7 +73,7 @@ class Enrollments
             'GET',
             "users/{$userId}/enrollments",
             array_merge([
-                'state' => static::$validStates,
+                'state' => array_diff(static::$validStates, ['deleted']),
                 'type' => static::$validTypes,
                 'per_page' => 1000,
             ], $params)
