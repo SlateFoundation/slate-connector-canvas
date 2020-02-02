@@ -4,6 +4,7 @@ namespace Slate\Connectors\Canvas\Commands;
 
 use Emergence\Connectors\ICommand;
 use Emergence\KeyedDiff;
+use Slate\Connectors\Canvas\API;
 
 class UpdateEnrollment implements ICommand
 {
@@ -37,6 +38,17 @@ class UpdateEnrollment implements ICommand
 
     public function buildRequest()
     {
-        dump(['buildRequest' => $this]);
+        $params = [
+            'enrollment[user_id]' => $this->userId,
+            'enrollment[type]' => $this->role,
+            'enrollment[enrollment_state]' => 'active',
+            'enrollment[notify]' => 'false',
+        ];
+
+        foreach ($this->newValues as $enrollmentKey => $enrollmentValue) {
+            $params["enrollment[{$enrollmentKey}]"] = $enrollmentValue;
+        }
+
+        return API::buildRequest('POST', "sections/{$this->sectionId}/enrollments", $params);
     }
 }

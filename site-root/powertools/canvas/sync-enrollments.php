@@ -1,6 +1,7 @@
 <?php
 
 use Emergence\People\PeopleRequestHandler;
+use Slate\Connectors\Canvas\API;
 use Slate\Connectors\Canvas\Repositories\Enrollments as EnrollmentsRepository;
 use Slate\Connectors\Canvas\Repositories\Users as UsersRepository;
 use Slate\Connectors\Canvas\Strategies\PushEnrollments;
@@ -172,6 +173,17 @@ try {
         <script>
             window.scrollTo(0,document.body.scrollHeight);
         </script>
+
+        <?php foreach ($commands as $command) : ?>
+            <?php
+                $request = $command->buildRequest();
+                dump([
+                    'command' => $command,
+                    'request' => $request,
+                    'response' => API::execute($request)
+                ]);
+            ?>
+        <?php endforeach ?>
         <!--
         <h2>Repositories</h2>
         <?php /* dump(compact('usersRepository', 'enrollmentsRepository')) */ ?>

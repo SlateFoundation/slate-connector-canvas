@@ -3,6 +3,7 @@
 namespace Slate\Connectors\Canvas\Commands;
 
 use Emergence\Connectors\ICommand;
+use Slate\Connectors\Canvas\API;
 
 class InactivateEnrollment implements ICommand
 {
@@ -27,6 +28,12 @@ class InactivateEnrollment implements ICommand
 
     public function buildRequest()
     {
-        dump(['buildRequest' => $this]);
+        return API::buildRequest(
+            'DELETE',
+            "courses/{$this->enrollment['course_id']}/enrollments/{$this->enrollment['id']}",
+            [
+                'task' => 'inactivate',
+            ]
+        );
     }
 }

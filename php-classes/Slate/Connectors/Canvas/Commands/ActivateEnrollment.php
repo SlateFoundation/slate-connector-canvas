@@ -3,6 +3,7 @@
 namespace Slate\Connectors\Canvas\Commands;
 
 use Emergence\Connectors\ICommand;
+use Slate\Connectors\Canvas\API;
 
 class ActivateEnrollment implements ICommand
 {
@@ -34,6 +35,17 @@ class ActivateEnrollment implements ICommand
 
     public function buildRequest()
     {
-        dump(['buildRequest' => $this]);
+        $params = [
+            'enrollment[user_id]' => $this->userId,
+            'enrollment[type]' => $this->role,
+            'enrollment[enrollment_state]' => 'active',
+            'enrollment[notify]' => 'false',
+        ];
+
+        foreach ($this->values as $enrollmentKey => $enrollmentValue) {
+            $params["enrollment[{$enrollmentKey}]"] = $enrollmentValue;
+        }
+
+        return API::buildRequest('POST', "sections/{$this->sectionId}/enrollments", $params);
     }
 }
