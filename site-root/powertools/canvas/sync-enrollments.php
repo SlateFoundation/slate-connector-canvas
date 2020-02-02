@@ -177,10 +177,17 @@ try {
         <?php foreach ($commands as $command) : ?>
             <?php
                 $request = $command->buildRequest();
+
+                try {
+                    $respose = API::execute($request);
+                } catch (Exception $e) {
+                    $response = $e;
+                }
+
                 dump([
                     'command' => $command,
                     'request' => $request,
-                    'response' => API::execute($request)
+                    'response' => $response,
                 ]);
             ?>
         <?php endforeach ?>
