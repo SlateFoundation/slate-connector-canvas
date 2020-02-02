@@ -1325,7 +1325,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
 
         try {
             $canvasResponse = CanvasAPI::deleteEnrollmentsForCourse(
-                $canvasSection ? $canvasSection['course_id'] : $CourseMapping->ExternalIdentifier,
+                $canvasSection['course_id'],
                 $enrollmentId,
                 $enrollmentTask
             );
