@@ -302,7 +302,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
             // detect needed changes
             $changes = false;
             $canvasUserChanges = new KeyedDiff();
-            $canvasLoginChanges = new KeyendDiff();
+            $canvasLoginChanges = new KeyedDiff();
 
             if ($canvasUser['name'] != $User->PreferredFullName) {
                 $canvasUserChanges->addChange('user[name]', $User->PreferredFullName, $canvasUser['name']);
