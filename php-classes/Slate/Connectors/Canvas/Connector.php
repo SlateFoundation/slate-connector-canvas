@@ -374,7 +374,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
             }
 
             // sync user
-            if (count($canvasUserChanges->getDelta())) {
+            if ($canvasUserChanges->hasChanges()) {
                 $changes['user'] = true;
 
                 if (!$pretend) {
@@ -407,7 +407,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
             }
 
             // sync login
-            if (count($canvasLoginChanges->getDelta())) {
+            if ($canvasLoginChanges->hasChanges()) {
                 $changes = true;
 
                 // get existing login ID
@@ -1055,7 +1055,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                     $changes->addChange('course[term_id]', $Job->Config['canvasTerm'], $canvasCourse['enrollment_term_id']);
                 }
 
-                if (!count($changes->getDelta())) {
+                if (!$changes->hasChanges()) {
                     $Job->debug(
                         'Canvas course data for {canvasCourseCode} matches Slate course.',
                         [
@@ -1174,7 +1174,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                     $changes->addChange('course_section[end_at]', $Section->Term->EndDate, $canvasSection['end_at']);
                 }
 
-                if (!count($changes->getDelta())) {
+                if (!$changes->hasChanges()) {
                     $Job->debug(
                         'Canvas section {sectionTitle} matches Slate section.',
                         [
