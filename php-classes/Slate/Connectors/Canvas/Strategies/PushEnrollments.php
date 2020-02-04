@@ -141,6 +141,16 @@ class PushEnrollments
         // plan operations -- enrollments to conclude/inactivate
         $inactivateQueue = array_diff_key($canvasEnrollments, $slateEnrollments);
         foreach ($inactivateQueue as $canvasEnrollment) {
+            // skip if section has no SIS (Slate) identifier
+            if (empty($canvasEnrollment['sis_section_id'])) {
+                $this->logger->warning('Enrollment #{enrollmentId} is in a section (course #{courseId}, section #{sectionId} with no SIS ID, skipping...', [
+                    'enrollmentId' => $canvasEnrollment['id'],
+                    'courseId' => $canvasEnrollment['course_id'],
+                    'sectionId' => $canvasEnrollment['course_section_id']
+                ]);
+                continue;
+            }
+
             // leave extra observer enrollments alone
             if ('ObserverEnrollment' == $canvasEnrollment['role']) {
                 // only skip observers who are observing a current student
@@ -188,6 +198,16 @@ class PushEnrollments
         $compareQueue = array_intersect_key($slateEnrollments, $canvasEnrollments);
         foreach ($compareQueue as $key => $slateEnrollment) {
             $canvasEnrollment = $canvasEnrollments[$key];
+
+            // skip if section has no SIS (Slate) identifier
+            if (empty($canvasEnrollment['sis_section_id'])) {
+                $this->logger->warning('Enrollment #{enrollmentId} is in a section (course #{courseId}, section #{sectionId} with no SIS ID, skipping...', [
+                    'enrollmentId' => $canvasEnrollment['id'],
+                    'courseId' => $canvasEnrollment['course_id'],
+                    'sectionId' => $canvasEnrollment['course_section_id']
+                ]);
+                continue;
+            }
 
             // inactivate if end date has past
             if (
