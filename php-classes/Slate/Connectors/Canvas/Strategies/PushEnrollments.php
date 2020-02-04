@@ -5,6 +5,7 @@ namespace Slate\Connectors\Canvas\Strategies;
 use BadMethodCallException;
 use Emergence\People\User;
 use OutOfBoundsException;
+use Psr\Log\LoggerInterface;
 use Slate\Connectors\Canvas\API;
 use Slate\Connectors\Canvas\Commands\ActivateEnrollment;
 use Slate\Connectors\Canvas\Commands\ConcludeEnrollment;
@@ -30,16 +31,17 @@ class PushEnrollments
         'ObserverEnrollment' => 'Observer',
         'TaEnrollment' => 'Assistant',
     ];
+
+    private $logger;
     private $usersRepository;
     private $enrollmentsRepository;
     private $sis_section_id;
     private $sis_user_id;
     private $inactivateEnded;
 
-    public function __construct(UsersRepository $usersRepository, EnrollmentsRepository $enrollmentsRepository, array $options = [])
+    public function __construct(LoggerInterface $logger, array $options = [])
     {
-        $this->usersRepository = $usersRepository;
-        $this->enrollmentsRepository = $enrollmentsRepository;
+        $this->logger = $logger;
 
         if (!empty($options['sis_section_id'])) {
             $this->sis_section_id = $options['sis_section_id'];
@@ -54,6 +56,11 @@ class PushEnrollments
         if (!$this->sis_section_id && !$this->sis_user_id) {
             throw new BadMethodCallException('sis_section_id and sis_user_id cannot both be omitted');
         }
+
+        // initialize repositories
+        $this->usersRepository = new UsersRepository($logger);
+        $this->enrollmentsRepository = new EnrollmentsRepository($logger);
+        $this->enrollmentsRepository->setUsersRepository($this->usersRepository);
     }
 
     /**

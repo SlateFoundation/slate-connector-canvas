@@ -50,11 +50,6 @@ class _PowertoolLogger extends Psr\Log\AbstractLogger
 }
 $logger = new _PowertoolLogger();
 
-// create canvas enrollments repo
-$usersRepository = new UsersRepository($logger);
-$enrollmentsRepository = new EnrollmentsRepository($logger);
-$enrollmentsRepository->setUsersRepository($usersRepository);
-
 ?>
 
 <style>
@@ -111,8 +106,7 @@ $enrollmentsRepository->setUsersRepository($usersRepository);
 // create push strategy
 try {
     $strategy = new PushEnrollments(
-        $usersRepository,
-        $enrollmentsRepository,
+        $logger,
         [
             'sis_section_id' => $Section ? $Section->Code : null,
             'sis_user_id' => $Person ? $Person->Username : null,

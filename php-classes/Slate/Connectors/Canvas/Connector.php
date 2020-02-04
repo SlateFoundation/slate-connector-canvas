@@ -805,10 +805,6 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
     // update references to createSectionEnrollment & removeSectionEnrollment
     public static function pushSections(IJob $Job, $pretend = true)
     {
-        $usersRepository = new UsersRepository($Job);
-        $enrollmentsRepository = new EnrollmentsRepository($Job);
-        $enrollmentsRepository->setUsersRepository($usersRepository);
-
         if (empty($Job->Config['masterTerm'])) {
             $Job->logException(new Exception('masterTerm required to import sections'));
 
@@ -1151,8 +1147,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                 // TODO: sync dynamic observers?
 
                 $strategy = new PushEnrollments(
-                    $usersRepository,
-                    $enrollmentsRepository,
+                    $Job,
                     [
                         'sis_section_id' => $Section->Code,
                         'inactivate_ended' => !empty($Job->Config['concludeEndedEnrollments']),
