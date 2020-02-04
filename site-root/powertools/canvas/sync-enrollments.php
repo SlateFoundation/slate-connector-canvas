@@ -189,11 +189,10 @@ try {
         <h2>Repositories</h2>
         <?php /* dump(compact('usersRepository', 'enrollmentsRepository')) */ ?>
         -->
-
-        <!--
-        <h2>Log</h2>
-        <?php /* dump($logger->entries) */ ?>
-        -->
     <?php endif; ?>
+
+
+    <h2>Diagnostic Log</h2>
+    <?php dump($logger->entries); ?>
 
 <?php endif; ?>
