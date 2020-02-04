@@ -173,7 +173,7 @@ try {
                 $request = $command->buildRequest();
 
                 try {
-                    $respose = API::execute($request);
+                    $response = API::execute($request);
                 } catch (Exception $e) {
                     $response = $e;
                 }
