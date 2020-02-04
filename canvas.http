@@ -62,3 +62,19 @@ Authorization: Bearer {{canvasToken}}
 # @name getEnrollmentsBySection
 GET {{baseUrl}}/sections/{{sectionId}}/enrollments/{{enrollmentId}}
 Authorization: Bearer {{canvasToken}}
+
+###
+
+# @name updateEnrollment
+
+POST {{baseUrl}}/sections/{{sectionId}}/enrollments
+Authorization: Bearer {{canvasToken}}
+Content-Type: application/x-www-form-urlencoded
+
+enrollment[user_id]={{userId}}
+&enrollment[type]=StudentEnrollment
+&enrollment[enrollment_state]=active
+&enrollment[notify]=false
+&enrollment[start_at]=null
+&enrollment[end_at]=null
+}
