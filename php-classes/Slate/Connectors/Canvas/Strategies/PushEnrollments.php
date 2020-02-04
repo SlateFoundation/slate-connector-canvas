@@ -223,9 +223,21 @@ class PushEnrollments
                 continue;
             }
 
-            // skip if everything matches
+            // build canvas attributes
             $newCanvasValues = $this->buildCanvasValues($slateEnrollment);
 
+            // activate if needed
+            if ($canvasEnrollment['enrollment_state'] != 'active') {
+                yield new ActivateEnrollment(
+                    "sis_user_id:{$slateEnrollment->Person->Username}",
+                    "sis_section_id:{$slateEnrollment->Section->Code}",
+                    $canvasEnrollment['role'],
+                    $newCanvasValues
+                );
+                continue;
+            }
+
+            // skip if everything matches
             if (
                 $canvasEnrollment['start_at'] == $newCanvasValues['start_at']
                 && $canvasEnrollment['end_at'] == $newCanvasValues['end_at']
