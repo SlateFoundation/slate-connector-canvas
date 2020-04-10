@@ -1,0 +1,80 @@
+@baseUrl = https://{{canvasHost}}/api/v1
+
+@allEnrollmentStates = &state[]=active&state[]=invited&state[]=creation_pending&state[]=deleted&state[]=rejected&state[]=completed&state[]=inactive
+@allEnrollmentTypes = &type[]=StudentEnrollment&type[]=TeacherEnrollment&type[]=ObserverEnrollment&type[]=TaEnrollment
+
+###
+
+# @name getAccount
+GET {{baseUrl}}/accounts/{{canvasAccountId}} HTTP/1.1
+Authorization: Bearer {{canvasToken}}
+
+###
+
+# @name getUser
+@userId = 1234
+
+GET {{baseUrl}}/users/{{userId}}
+Authorization: Bearer {{canvasToken}}
+
+###
+
+# @name getEnrollmentsByUser
+
+GET {{baseUrl}}/users/{{userId}}/enrollments
+    ?per_page=1000
+    {{allEnrollmentStates}}
+    {{allEnrollmentTypes}}
+    &sis_section_id[]=ENG3-123
+Authorization: Bearer {{canvasToken}}
+
+###
+
+# @name deleteEnrollment
+
+@courseId = 1234
+@enrollmentId = 1234567
+
+DELETE {{baseUrl}}/courses/{{courseId}}/enrollments/{{enrollmentId}}
+    ?task=inactivate
+Authorization: Bearer {{canvasToken}}
+
+###
+
+# @name getSection
+
+@sectionId = sis_section_id:ENG3-123
+
+GET {{baseUrl}}/sections/{{sectionId}}
+Authorization: Bearer {{canvasToken}}
+
+###
+
+# @name getEnrollmentsBySection
+GET {{baseUrl}}/sections/{{sectionId}}/enrollments
+    ?per_page=1000
+    {{allEnrollmentStates}}
+    {{allEnrollmentTypes}}
+Authorization: Bearer {{canvasToken}}
+
+###
+
+# @name getEnrollmentsBySection
+GET {{baseUrl}}/sections/{{sectionId}}/enrollments/{{enrollmentId}}
+Authorization: Bearer {{canvasToken}}
+
+###
+
+# @name updateEnrollment
+
+POST {{baseUrl}}/sections/{{sectionId}}/enrollments
+Authorization: Bearer {{canvasToken}}
+Content-Type: application/x-www-form-urlencoded
+
+enrollment[user_id]={{userId}}
+&enrollment[type]=StudentEnrollment
+&enrollment[enrollment_state]=active
+&enrollment[notify]=false
+&enrollment[start_at]=null
+&enrollment[end_at]=null
+}

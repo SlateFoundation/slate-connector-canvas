@@ -108,6 +108,7 @@
                 </label>
                 Check to conclude student enrollments that have a past end date.
             </p>
+            {*
             <p>
                 <label>
                     &#x21B3; Remove Teachers
@@ -115,6 +116,7 @@
                 </label>
                 Check to unenroll <strong>teachers</strong> from Canvas courses if they're no longer enrolled in Slate
             </p>
+            *}
             {*
             <p>
                 <label>

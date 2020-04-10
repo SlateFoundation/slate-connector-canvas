@@ -11,65 +11,106 @@ class Canvas
     public static $accountID;
 
 
-    private static $logger;
+    protected static $logger;
     public static function setLogger(\Psr\Log\LoggerInterface $logger)
     {
         static::$logger = $logger;
     }
 
 
-    public static function executeRequest($path, $requestMethod = 'GET', $params = [], $headers = [])
+    public static function executeRequest($path, $requestMethod = 'GET', $params = [])
     {
         $url = 'https://'.static::$canvasHost.'/api/v1/'.$path;
 
+
         // confugre cURL
-        $ch = curl_init();
+        static $ch;
+
+        if (!$ch) {
+            $ch = curl_init();
+
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                sprintf('Authorization: Bearer %s', static::$apiToken)
+            ]);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_HEADER, true);
+        }
+
+
+        // (re)configure cURL for this request
+        curl_setopt($ch, CURLOPT_POST, $requestMethod == 'POST');
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $requestMethod);
 
         if ($requestMethod == 'GET') {
-            $url .= '?'.(is_string($params) ? $params : preg_replace('/(%5B)\d+(%5D=)/i', '$1$2', http_build_query($params))); // strip numeric indexes in array keys
-        } else {
-            if ($requestMethod == 'POST') {
-                curl_setopt($ch, CURLOPT_POST, true);
-            } else {
-                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $requestMethod);
-            }
+            curl_setopt($ch, CURLOPT_HTTPGET, true);
 
+            // strip numeric indexes in array keys
+            $url .= '?'.(is_string($params) ? $params : preg_replace('/(%5B)\d+(%5D=)/i', '$1$2', http_build_query($params)));
+        } else {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
         }
 
-        if (!empty($headers)) {
-            $requestHeaders = array_merge($requestHeaders, $headers);
-        }
+        curl_setopt($ch, CURLOPT_URL, $url);
 
         if (static::$logger) {
-            static::$logger->debug("$requestMethod $url");
+            static::$logger->debug("$requestMethod\t" . str_replace('?', "\t?", $url));
         }
 
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array_merge([
-            sprintf('Authorization: Bearer %s', static::$apiToken)
-        ], $headers));
 
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        // fetch pages
+        $responseData = [];
+        do {
+            $response = curl_exec($ch);
+            $responseCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
 
-        $response = json_decode(curl_exec($ch), true);
-        $responseCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        curl_close($ch);
+            $responseHeadersSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+            $responseHeaders = substr($response, 0, $responseHeadersSize);
+            $responseData = array_merge($responseData, json_decode(substr($response, $responseHeadersSize), true));
 
-        if ($responseCode >= 400 || $responseCode < 200) {
-            throw new \RuntimeException(
-                (
-                    !empty($response['errors']) ?
-                    'Canvas reports: '.$response['errors'][0]['message']
-                    : 'unknown Canvas error'
-                ),
-                $responseCode
-            );
-        }
+            if ($responseCode >= 400 || $responseCode < 200) {
+                throw new \RuntimeException(
+                    (
+                        !empty($responseData['errors'])
+                        ? "Canvas reports: {$responseData['errors'][0]['message']}"
+                        : "Canvas request failed with code {$responseCode}"
+                    ),
+                    $responseCode
+                );
+            }
 
-        return $response;
+            if (
+                !empty($params['per_page'])
+                && preg_match('/^link:\s+(.+?)\r\n/mi', $responseHeaders, $responseHeaderMatches)
+                && !empty($responseHeaderMatches[1])
+            ) {
+                $responseHeaderLinks = preg_split('/\s*,\s*/', $responseHeaderMatches[1]);
+
+                foreach ($responseHeaderLinks as $linkLine) {
+                    $linkSegments = preg_split('/\s*;\s*/', $linkLine);
+                    $linkUrl = substr(array_shift($linkSegments), 1, -1);
+
+                    foreach ($linkSegments as $linkSegment) {
+                        if (preg_match('/rel=([\'"]?)next\1/i', $linkSegment)) {
+                            curl_setopt($ch, CURLOPT_URL, $linkUrl);
+                            // continue to top-most do-loop to load new URL
+                            continue 3;
+                        }
+                    }
+                }
+
+                // no link header or next link found
+                break;
+            } else {
+                // no paging, finish after first request
+                break;
+            }
+
+        } while (true);
+
+
+        return $responseData;
     }
 
     /**
@@ -77,7 +118,7 @@ class Canvas
      */
     public static function formatTimestamp($timestamp)
     {
-        return gmdate('Y-m-d\TH:i:s\Z', $timestamp);
+        return $timestamp ? gmdate('Y-m-d\TH:i:s\Z', $timestamp) : null;
     }
 
 
