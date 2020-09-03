@@ -338,7 +338,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                 $changes['user'] = true;
 
                 if (!$pretend) {
-                    $canvasResponse = CanvasAPI::updateUser($Mapping->ExternalIdentifier, DataUtil::extractToFromDelta($canvasUserChanges));
+                    $canvasResponse = CanvasAPI::updateUser($Mapping->ExternalIdentifier, $canvasUserChanges->getNewValues());
                     $logger->debug(
                         'Updating canvas for user {slateUsername}',
                         [
@@ -394,7 +394,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                 );
 
                 if (!$pretend) {
-                    $canvasResponse = CanvasAPI::updateLogin($logins[0]['id'], DataUtil::extractToFromDelta($canvasLoginChanges));
+                    $canvasResponse = CanvasAPI::updateLogin($logins[0]['id'], $canvasLoginChanges->getNewValues());
                     $logger->debug(
                         'Updated canvas login for user {slateUsername}',
                         [
