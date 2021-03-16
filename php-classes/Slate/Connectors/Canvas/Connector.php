@@ -31,6 +31,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
 {
     public static $sectionSkipper;
     public static $sectionTitleBuilder = [__CLASS__, 'buildSectionTitle'];
+    public static $sectionTitleTermPrefix = true;
 
     public static $title = 'Canvas';
     public static $connectorId = 'canvas';
@@ -154,13 +155,25 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
 
     public static function buildSectionTitle(Section $Section)
     {
-        $sectionTitle = $Section->Title;
+        if (static::$sectionTitleTermPrefix) {
+            $masterTerm = $Section->Term->getMaster();
+            $year1 = substr($masterTerm->StartDate, 2, 2);
+            $year2 = substr($masterTerm->EndDate, 2, 2);
 
-        if ($Section->Schedule) {
-            $sectionTitle .= ' ('.$Section->Schedule->Title.')';
+            $title = " {$year1}";
+
+            if ($year1 != $year2) {
+                $title .= "–{$year2}";
+            }
+
+            $title .= ': ';
+        } else {
+            $title = '';
         }
 
-        return $sectionTitle;
+        $title .= $Section->getTitle();
+
+        return $title;
     }
 
     public static function synchronize(IJob $Job, $pretend = true)
