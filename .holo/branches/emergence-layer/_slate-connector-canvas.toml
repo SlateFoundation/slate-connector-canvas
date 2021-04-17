@@ -1,4 +1,9 @@
 
 [holomapping]
-files = "*/**"
+files = [
+    "*/**",
+
+    # exclude developer assets
+    "!.github/**"
+]
 after = "*"
