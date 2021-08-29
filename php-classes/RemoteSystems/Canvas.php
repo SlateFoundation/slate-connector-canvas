@@ -70,10 +70,23 @@ class Canvas
             $responseData = array_merge($responseData, json_decode(substr($response, $responseHeadersSize), true));
 
             if ($responseCode >= 400 || $responseCode < 200) {
+                $errorMessage = null;
+
+                if (!empty($responseData['errors'])) {
+                    if (!empty($responseData['errors'][0])) {
+                        $errorMessage = $responseData['errors'][0]['message'];
+                    } else {
+                        foreach ($responseData['errors'] as $attribute => $errorData) {
+                            $errorMessage = "{$errorData[0]['message']} ({$attribute})";
+                            break;
+                        }
+                    }
+                }
+
                 throw new \RuntimeException(
                     (
-                        !empty($responseData['errors'])
-                        ? "Canvas reports: {$responseData['errors'][0]['message']}"
+                        $errorMessage
+                        ? "Canvas reports: {$errorMessage}"
                         : "Canvas request failed with code {$responseCode}"
                     ),
                     $responseCode
