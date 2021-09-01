@@ -470,6 +470,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                 'pseudonym[sis_user_id]' => $User->Username,
                 'communication_channel[type]' => 'email',
                 'communication_channel[address]' => $User->Email,
+                'enable_sis_reactivation' => true,
             ]);
 
             $logger->notice(
