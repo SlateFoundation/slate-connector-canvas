@@ -615,7 +615,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
             }
 
             $studentCanvasId = static::_getCanvasUserID($Ward->ID);
-            $studentCanvasEnrollments = CanvasAPI::getEnrollmentsByUser($studentCanvasId);
+            // $studentCanvasEnrollments = CanvasAPI::getEnrollmentsByUser($studentCanvasId);
 
             $WardEnrollments = SectionParticipant::getAllByWhere([
                 'PersonID' => $Ward->ID,
