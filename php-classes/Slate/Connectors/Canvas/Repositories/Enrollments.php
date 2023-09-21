@@ -14,7 +14,7 @@ class Enrollments
         'active',
         'invited',
         'creation_pending',
-        'deleted',
+        // 'deleted',
         'rejected',
         'completed',
         'inactive',

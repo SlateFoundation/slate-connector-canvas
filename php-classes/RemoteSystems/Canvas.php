@@ -260,7 +260,7 @@ class Canvas
     public static function getEnrollmentsByUser($userId, array $options = [])
     {
         $options = array_merge([
-            'state' => ['active', 'invited', 'creation_pending', 'deleted', 'rejected', 'completed', 'inactive'],
+            'state' => ['active', 'invited', 'creation_pending', 'rejected', 'completed', 'inactive'], // , 'deleted'
             'type' => ['StudentEnrollment', 'TeacherEnrollment', 'ObserverEnrollment', 'TaEnrollment'],
             'per_page' => 1000
         ], $options);
