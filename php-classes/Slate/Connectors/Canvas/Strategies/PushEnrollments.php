@@ -71,6 +71,9 @@ class PushEnrollments
      */
     public function plan()
     {
+        $Section = null;
+        $Person = null;
+
         if (
             $this->sis_section_id
             && !($Section = Section::getByCode($this->sis_section_id))
