@@ -264,7 +264,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                 } elseif (SyncResult::STATUS_SKIPPED === $syncResult->getStatus()) {
                     continue;
                 }
-            } catch (SyncException $e) {
+            } catch (SyncException | RuntimeException $e) {
                 $Job->logException($e);
                 ++$results['failed'];
             }
@@ -589,7 +589,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                 } elseif (SyncResult::STATUS_DELETED === $syncResult->getStatus()) {
                     ++$results['removed'];
                 }
-            } catch (SyncException $e) {
+            } catch (SyncException | RuntimeException $e) {
                 $logger->error(
                     'Unable to push {slateUsername} section enrollment for section {sectionCode}',
                     [
@@ -663,7 +663,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                     } elseif (SyncResult::STATUS_DELETED === $canvasEnrollment->getStatus()) {
                         ++$results['removed'];
                     }
-                } catch (SyncException $e) {
+                } catch (SyncException | RuntimeException $e) {
                     $logger->error(
                         'Unable to push {slateUsername} section observer enrollment for section {sectionCode}',
                         [
