@@ -9,5 +9,14 @@
     },
     "require-dev": {
         "phpunit/phpunit": "^9.6"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Slate\\Connectors\\Canvas\\": "php-classes/Slate/Connectors/Canvas/",
+            "Slate\\Connectors\\Canvas\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
     }
 }
