@@ -355,7 +355,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                 $canvasLoginChanges->addChange('login[sis_user_id]', $User->Username, $canvasUser['sis_user_id']);
             }
 
-            if ($canvasUser['login_id'] != $User->Email) {
+            if (LoginPlanner::normalizeUniqueId($canvasUser['login_id']) != LoginPlanner::normalizeUniqueId($User->Email)) {
                 $canvasLoginChanges->addChange('login[unique_id]', $User->Email, $canvasUser['login_id']);
             }
 
@@ -392,11 +392,9 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                 );
             }
 
-            // sync login
+            // sync logins
             if ($canvasLoginChanges->hasChanges()) {
-                $changes = true;
-
-                // get existing login ID
+                // get existing logins, a Canvas user may have several (e.g. after a user merge)
                 $logins = CanvasAPI::getLoginsByUser($Mapping->ExternalIdentifier);
                 //$Job->log('<blockquote>Canvas logins response: ' . var_export($logins, true) . "</blockquote>\n");
 
@@ -411,25 +409,109 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                     );
                 }
 
-                $logger->notice(
-                    'Updating login for user {slateUsername}',
-                    [
-                        'slateUsername' => $User->Username,
-                        'changes' => $canvasLoginChanges,
-                    ]
-                );
+                $loginPlan = LoginPlanner::plan($canvasUser, $logins, $User->Email, $User->Username);
 
-                if (!$pretend) {
-                    $canvasResponse = CanvasAPI::updateLogin($logins[0]['id'], $canvasLoginChanges->getNewValues());
+                foreach ($loginPlan['warnings'] as $warning) {
+                    $logger->warning(
+                        $warning['message'],
+                        array_merge($warning['context'], [
+                            'slatePersonId' => $User->ID,
+                            'slateUsername' => $User->Username,
+                        ])
+                    );
+                }
+
+                if (count($loginPlan['operations'])) {
+                    $changes = true;
+                } else {
                     $logger->debug(
-                        'Updated canvas login for user {slateUsername}',
+                        'Canvas logins for {slateUsername} already match Slate login',
                         [
                             'slateUsername' => $User->Username,
+                            'canvasLogins' => $logins,
+                        ]
+                    );
+                }
+
+                $refusedLogins = [];
+
+                foreach ($loginPlan['operations'] as $loginOperation) {
+                    $canvasLoginChanges = new KeyedDiff($loginOperation['changes'], $loginOperation['previous']);
+
+                    if (isset($refusedLogins[$loginOperation['loginId']])) {
+                        $logger->warning(
+                            'Skipping {loginAction} for login {canvasLoginId} of user {slateUsername}, an earlier change to it was refused',
+                            [
+                                'slateUsername' => $User->Username,
+                                'loginAction' => $loginOperation['action'],
+                                'canvasLoginId' => $loginOperation['loginId'],
+                                'changes' => $canvasLoginChanges,
+                            ]
+                        );
+
+                        continue;
+                    }
+
+                    $logger->notice(
+                        'Updating login {canvasLoginId} for user {slateUsername} ({loginAction})',
+                        [
+                            'slateUsername' => $User->Username,
+                            'loginAction' => $loginOperation['action'],
+                            'canvasLoginId' => $loginOperation['loginId'],
+                            'changes' => $canvasLoginChanges,
+                        ]
+                    );
+
+                    if ($pretend) {
+                        continue;
+                    }
+
+                    try {
+                        $canvasResponse = CanvasAPI::updateLogin($loginOperation['loginId'], $loginOperation['changes']);
+                    } catch (RuntimeException $e) {
+                        if (!LoginPlanner::isAlreadyInUseError($e)) {
+                            throw $e;
+                        }
+
+                        // the ID belongs to a different Canvas user, likely a duplicate account for this person
+                        $refusedLogins[$loginOperation['loginId']] = $e->getMessage();
+                        $logger->error(
+                            'Canvas refused {loginAction} for login {canvasLoginId} of Canvas user {canvasUserId} for person #{slatePersonId} ({slateUsername}), probably a duplicate Canvas user holds it; leaving login untouched: {canvasMessage}',
+                            [
+                                'slatePersonId' => $User->ID,
+                                'slateUsername' => $User->Username,
+                                'canvasUserId' => $Mapping->ExternalIdentifier,
+                                'loginAction' => $loginOperation['action'],
+                                'canvasLoginId' => $loginOperation['loginId'],
+                                'changes' => $canvasLoginChanges,
+                                'canvasMessage' => $e->getMessage(),
+                            ]
+                        );
+
+                        continue;
+                    }
+
+                    $logger->debug(
+                        'Updated canvas login {canvasLoginId} for user {slateUsername}',
+                        [
+                            'slateUsername' => $User->Username,
+                            'canvasLoginId' => $loginOperation['loginId'],
                             'changes' => $canvasLoginChanges,
                             'canvasResponse' => $canvasResponse,
                         ]
                     );
                     //$Job->log('<blockquote>Canvas update login response: ' . var_export($canvasResponse, true) . "</blockquote>\n");
+                }
+
+                if (count($refusedLogins)) {
+                    throw new SyncException(
+                        'Canvas account for {slateUsername} was not fully updated, Canvas refused login changes as already in use: {canvasMessages}',
+                        [
+                            'slateUsername' => $User->Username,
+                            'canvasUserId' => $Mapping->ExternalIdentifier,
+                            'canvasMessages' => implode('; ', array_unique($refusedLogins)),
+                        ]
+                    );
                 }
             } else {
                 $logger->debug(
