@@ -105,22 +105,35 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
             'Person' => $Person,
         ]);
 
-        try {
-            $logger = static::getLogger();
+        $logger = static::getLogger();
 
+        // syncing is best-effort during a launch: any failure is logged and must not
+        // block sign-in for a person who already has a Canvas account
+        try {
             $userSyncResult = static::pushUser($Person, $logger, false);
+        } catch (\Throwable $e) {
+            $userSyncResult = null;
+            static::logLaunchSyncFailure($logger, $Person, 'user', $e);
+        }
+
+        if ($userSyncResult) {
             if (SyncResult::STATUS_SKIPPED == $userSyncResult->getStatus() || SyncResult::STATUS_DELETED == $userSyncResult->getStatus()) {
                 return false;
             }
-
-            $enrollmentSyncResults = static::pushEnrollments($Person, $logger, false);
-        } catch (SyncException $exception) {
+        } else {
             // allow login if account exists
             try {
-                return static::_getCanvasUserID($Person->ID);
+                static::_getCanvasUserID($Person->ID);
             } catch (\Exception $e) {
                 return false;
             }
+        }
+
+        // enrollments only need the Canvas user to exist, so still attempt them after a failed user sync
+        try {
+            $enrollmentSyncResults = static::pushEnrollments($Person, $logger, false);
+        } catch (\Throwable $e) {
+            static::logLaunchSyncFailure($logger, $Person, 'enrollment', $e);
         }
 
         if (is_callable(static::$beforeAuthenticate)) {
@@ -1369,6 +1382,21 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                 'sectionCode' => $SectionMapping->Context->Code,
                 'slateUsername' => $User->Username,
                 'enrollmentType' => $enrollmentType,
+            ]
+        );
+    }
+
+    protected static function logLaunchSyncFailure(LoggerInterface $logger, IPerson $Person, $step, \Throwable $e)
+    {
+        $logger->error(
+            'Canvas {syncStep} sync failed during launch for person #{slatePersonId} ({slateUsername}): {canvasMessage}',
+            [
+                'syncStep' => $step,
+                'slatePersonId' => $Person->ID,
+                'slateUsername' => $Person->Username,
+                'canvasMessage' => $e instanceof SyncException ? $e->getInterpolatedMessage() : $e->getMessage(),
+                'exceptionClass' => get_class($e),
+                'exception' => $e,
             ]
         );
     }
