@@ -4,6 +4,7 @@ files = [
     "*/**",
 
     # exclude developer assets
-    "!.github/**"
+    "!.github/**",
+    "!tests/**"
 ]
 after = "*"
