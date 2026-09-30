@@ -100,7 +100,7 @@ class API extends \RemoteSystems\Canvas
 
             $responseHeadersSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
             $responseHeaders = substr($response, 0, $responseHeadersSize);
-            $responseData = array_merge($responseData, json_decode(substr($response, $responseHeadersSize), true));
+            $responseData = array_merge($responseData, ResponseDecoder::decode(substr($response, $responseHeadersSize), $responseCode));
 
             if ($responseCode >= 400 || $responseCode < 200) {
                 $errorMessage = null;
