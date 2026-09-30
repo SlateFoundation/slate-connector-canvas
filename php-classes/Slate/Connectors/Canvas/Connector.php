@@ -280,6 +280,17 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
             } catch (SyncException | RuntimeException $e) {
                 $Job->logException($e);
                 ++$results['failed'];
+            } catch (\Throwable $e) {
+                // no single user may end the job; logException() only accepts \Exception, so log the same entry directly
+                $Job->error(
+                    'Exception({exceptionClass}): {exceptionMessage}',
+                    [
+                        'exception' => $e,
+                        'exceptionClass' => get_class($e),
+                        'exceptionMessage' => $e->getMessage(),
+                    ]
+                );
+                ++$results['failed'];
             }
 
             // try {
@@ -684,7 +695,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                 } elseif (SyncResult::STATUS_DELETED === $syncResult->getStatus()) {
                     ++$results['removed'];
                 }
-            } catch (SyncException | RuntimeException $e) {
+            } catch (\Throwable $e) {
                 $logger->error(
                     'Unable to push {slateUsername} section enrollment for section {sectionCode}',
                     [
@@ -758,7 +769,7 @@ class Connector extends SAML2Connector implements ISynchronize, IIdentityConsume
                     } elseif (SyncResult::STATUS_DELETED === $canvasEnrollment->getStatus()) {
                         ++$results['removed'];
                     }
-                } catch (SyncException | RuntimeException $e) {
+                } catch (\Throwable $e) {
                     $logger->error(
                         'Unable to push {slateUsername} section observer enrollment for section {sectionCode}',
                         [
